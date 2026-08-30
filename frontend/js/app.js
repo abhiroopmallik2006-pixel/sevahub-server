@@ -144,7 +144,14 @@ async function register(e){
    const worker=state.role==='WORKER'?{experience:+document.getElementById('rExp').value,serviceArea:document.getElementById('rArea').value,serviceId:+document.getElementById('rService').value,price:+document.getElementById('rPrice').value}:null;
    pendingRegistration={fullName:name,email,phone,password:pass,role:state.role,worker};
    const btn=e.target.querySelector('button[type=submit]'); if(btn){btn.disabled=true;btn.textContent='Sending code...'}
-   await api('/auth/send-otp',{method:'POST',body:JSON.stringify({email,purpose:'REGISTER'})});
+   const otpResult = await api('/auth/send-otp',{
+  method:'POST',
+  body:JSON.stringify({email,purpose:'REGISTER'})
+});
+
+if (otpResult.devOtp) {
+  pendingRegistration.devOtp = otpResult.devOtp;
+}
    toast('Verification code sent to '+email);
    renderOtpStep();
   }else{
@@ -166,6 +173,14 @@ function renderOtpStep(){
   <button class="btn secondary small" onclick="renderRegister()">← Back</button>
   <h2>Verify your email</h2>
   <p class="muted">We sent a 6-digit code to <b>${esc(pendingRegistration.email)}</b>. Enter it below to finish creating your account.</p>
+  ${pendingRegistration?.devOtp ? `
+<div class="offer">
+  <b>Demo verification code:</b>
+  <div style="font-size:26px;font-weight:800;letter-spacing:5px;margin-top:6px">
+    ${esc(pendingRegistration.devOtp)}
+  </div>
+  <p class="muted">Demo mode verification code</p>
+</div>` : ''}
   <form onsubmit="submitOtp(event)">
    <div class="field"><label>Verification code</label><input id="otpCode" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" placeholder="123456" required autofocus></div>
    <button class="btn" type="submit">Verify & create account</button>
@@ -193,7 +208,18 @@ async function resendOtp(){
  const btn=document.getElementById('resendBtn');
  try{
   if(btn){btn.disabled=true;btn.textContent='Sending...'}
-  await api('/auth/send-otp',{method:'POST',body:JSON.stringify({email:pendingRegistration.email,purpose:'REGISTER'})});
+  const otpResult = await api('/auth/send-otp',{
+  method:'POST',
+  body:JSON.stringify({
+    email:pendingRegistration.email,
+    purpose:'REGISTER'
+  })
+});
+
+if (otpResult.devOtp) {
+  pendingRegistration.devOtp = otpResult.devOtp;
+  renderOtpStep();
+}
   toast('A new code has been sent');
  }catch(err){toast(err.message)}
  finally{if(btn){btn.disabled=false;btn.textContent='Resend code'}}
