@@ -1,0 +1,3 @@
+For Android emulator use http://10.0.2.2:3000.
+For a physical phone use the laptop's Wi-Fi IPv4: http://<LAPTOP_IP>:3000.
+Both devices must be on the same network and Windows Firewall must allow Node.js on the private network.
