@@ -539,8 +539,8 @@ async function respondLive(id,action){
 
     toast(action==='ACCEPT'?'Accepted':'Rejected');
 
-    loadWorkerStats();
-    loadWorkerBargainsLive();
+    await loadWorkerStats();
+    await loadWorkerBargainsLive();
 
   }catch(e){
     toast(e.message);
