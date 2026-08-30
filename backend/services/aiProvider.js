@@ -1,69 +1,279 @@
-const SYSTEM=`You are SevaHub AI, a warm, natural, intelligent assistant inside SevaHub.
+const SYSTEM = `You are SevaHub AI, a friendly and intelligent assistant inside SevaHub.
 
-PERSONALITY:
-- Talk like a helpful human, not like a rigid bot.
-- If the user says hi/hello/hey/namaste, greet naturally and ask what they need.
-- Understand typos, slang, Hinglish, Hindi, and informal messages. Reply in the user's language/style.
-- Answer the actual question first. Do not force every conversation back to SevaHub.
-- For simple questions be concise; for difficult problems give clear step-by-step reasoning and practical options.
-- If you do not know something, say so instead of inventing facts.
-- Never claim to have browsed the internet or performed an action you did not perform.
-- You can discuss general knowledge, study/project questions, coding, writing, calculations, planning, troubleshooting, everyday questions, and SevaHub topics.
+LANGUAGE & PERSONALITY:
+- By default talk in natural Hinglish (Hindi written in English + simple English), like a helpful Indian friend.
+- If the user talks in English only, you may answer in English.
+- Understand bhai, bro, yaar, acha, nhi, ky, kaise, krna, ho gya, Hinglish, typos and informal language.
+- Never sound robotic.
+- Do NOT say "I am in demo mode".
+- Answer the user's actual question first.
+- Be concise for simple questions and detailed when needed.
+- You can answer normal questions about study, coding, planning, troubleshooting and everyday problems.
 
-SEVAHUB CONTEXT:
-SevaHub is a cooperative gig-services platform. Households and communities create service requests/gigs. Verified cooperative members provide services. Users and workers can negotiate offers and chat privately per booking.
-When the question is about a service, identify the likely service, explain the reasoning, give the prototype's configured starting price when available, and suggest the next useful action. Prices are estimates only and the final price is agreed by the user and worker.
-Never invent worker availability, booking status, exact final prices, credentials, OTPs, TPINs, passwords, private data, or transactions.
-For medical/legal/safety-critical questions, give general information and recommend an appropriately qualified professional.
+SEVAHUB:
+SevaHub is a cooperative gig-services platform for household and community services.
+
+Configured starting prices:
+Cleaning ₹150
+Plumbing ₹250
+Electrician ₹200
+AC Repair ₹500
+Appliance Repair ₹450
+Beauty & Grooming ₹300
+Painting ₹450
+Carpenter ₹350
+Home Shifting ₹500
+Pest Control ₹500
+Computer/Laptop Repair ₹700
+Other ₹100
+
+For household problems:
+- understand the problem naturally
+- suggest the most suitable service
+- explain briefly why
+- mention the configured starting price where relevant
+- remind the user that final scope/price can be discussed with the worker
+
+Examples:
+"bed toot gaya" -> Carpenter
+"bed se awaaz aa rahi hai" -> Carpenter
+"door loose hai" -> Carpenter
+"fan slow hai" -> Electrician
+"nal leak hai" -> Plumbing
+
+Never invent worker availability, booking status, OTPs, passwords, transactions or private data.
 Use ₹ for Indian currency.`;
 
-const histories=new Map();
-const MAX_TURNS=12;
+const histories = new Map();
+const MAX_TURNS = 12;
 
-function keyFor(context){return String(context?.sessionId||context?.userId||'anonymous');}
+function keyFor(context) {
+  return String(context?.sessionId || context?.userId || 'anonymous');
+}
 
-async function reply({message,context={}}){
- const key=process.env.AI_API_KEY||process.env.OPENAI_API_KEY;
- if(!key)return fallback(message,context);
- const endpoint=process.env.AI_BASE_URL||'https://api.openai.com/v1/chat/completions';
- const session=keyFor(context);
- const history=histories.get(session)||[];
- history.push({role:'user',content:String(message)});
- const safeContext={role:context.role,bookings:context.bookings||[],platform:context.platform||{}};
- const messages=[{role:'system',content:SYSTEM},{role:'system',content:`Relevant SevaHub context (use only when relevant; do not expose private data): ${JSON.stringify(safeContext)}`},...history.slice(-MAX_TURNS)];
- const payload={model:process.env.AI_MODEL||'gpt-4o-mini',messages,temperature:0.7,max_tokens:900};
- try{
-  const response=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  if(!response.ok){const t=await response.text().catch(()=> '');throw new Error(`AI provider error (${response.status}). ${t.slice(0,180)}`)}
-  const data=await response.json();
-  const answer=data.choices?.[0]?.message?.content?.trim();
-  if(!answer)throw new Error('AI returned an empty response');
-  history.push({role:'assistant',content:answer});
-  histories.set(session,history.slice(-MAX_TURNS));
+function uniqueModels() {
+  return [
+    process.env.AI_MODEL || 'gemini-3.1-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-3.5-flash-lite',
+    'gemini-3.6-flash'
+  ].filter((model, index, arr) => arr.indexOf(model) === index);
+}
+
+async function callModel({ endpoint, key, model, messages }) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: 900
+    })
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '');
+    const err = new Error(`Provider ${response.status}: ${body.slice(0, 200)}`);
+    err.status = response.status;
+    throw err;
+  }
+
+  const data = await response.json();
+  const answer = data.choices?.[0]?.message?.content?.trim();
+
+  if (!answer) throw new Error('AI returned an empty response');
+
   return answer;
- }catch(e){
-  // Keep the app usable if the provider temporarily fails.
-  const local=fallback(message,context);
-  return `${local}\n\n_(AI connection issue: ${e.message})_`;
- }
 }
 
-function fallback(message,context){
- const q=String(message).trim().toLowerCase();
- const services=context?.services||[
-  {name:'Cleaning',base_price:150},{name:'Plumbing',base_price:250},{name:'Electrician',base_price:200},{name:'AC Repair',base_price:500},{name:'Appliance Repair',base_price:450},{name:'Beauty & Grooming',base_price:300},{name:'Painting',base_price:450},{name:'Carpenter',base_price:350},{name:'Home Shifting',base_price:500},{name:'Pest Control',base_price:500},{name:'Computer/Laptop Repair',base_price:700},{name:'Other',base_price:100}
- ];
- const price=n=>services.find(s=>s.name===n)?.base_price;
- if(/^(hi|hello|hey|hii+|helo+|namaste|good morning|good evening|good night)\b/.test(q))return 'Hey! 👋 Kaise ho? Jo bhi poochna hai—SevaHub, koi problem, study, coding, planning ya bas random question—seedha poochho. I’ll try to help.';
- if(/\b(thanks|thank you|thx|ty)\b/.test(q))return 'Anytime bhai! 😄 Aur kuch poochna ho toh batao.';
- const rules=[
-  [/clean|safai|cleaning/,'Cleaning','🧹'],[/plumb|tap|sink|pipe|leak|nal/,'Plumbing','🔧'],[/electric|switch|fan|light|wiring/,'Electrician','⚡'],[/\bac\b|cooling|air conditioner/,'AC Repair','❄️'],[/fridge|washing machine|microwave|oven|appliance/,'Appliance Repair','🔌'],[/beauty|salon|groom/,'Beauty & Grooming','💇'],[/paint|wall colour|color/,'Painting','🎨'],[/carpenter|furniture|wood|door/,'Carpenter','🪚'],[/shift|move house|packing|unpacking/,'Home Shifting','📦'],[/pest|termite|cockroach|mosquito/,'Pest Control','🐜'],[/laptop|computer|pc|printer|wifi/,'Computer/Laptop Repair','💻']
- ];
- for(const [rx,name,icon] of rules)if(rx.test(q))return `${icon} **${name}** lag rahi hai. Prototype mein starting price **₹${price(name)}** hai. Problem ki photo/details share karke worker se final scope aur price confirm karna best rahega.`;
- if(/bargain|counter|offer|negotiate|price/.test(q))return 'Bargaining mein user aur worker dono offer bhej sakte hain. Receiver **Accept, Reject ya Counter** kar sakta hai. Chat mein work scope clear karke fair amount decide karna best hai.';
- if(/community|society|colony|park/.test(q))return 'Community gig ek shared need ke liye hoti hai—jaise park maintenance, common-area cleaning, lighting repair ya event setup. Cooperative multiple verified members ko team ke roop mein coordinate kar sakta hai.';
- if(/cooperative/.test(q))return 'SevaHub ka cooperative model local service providers ko members ke roop mein organize karta hai. Demand ko gigs mein convert karke matching, transparent earnings, community work aur member participation support ki ja sakti hai.';
- if(/booking|status/.test(q))return `Aapki recent bookings: ${(context?.bookings||[]).length}. Exact status My Bookings mein milega.`;
- return 'Main demo mode mein hoon, isliye bina AI API ke general questions ka full intelligent answer nahi de sakta. Real AI enable karne par main normal human-style conversation aur general questions bhi handle karunga.';
+async function reply({ message, context = {} }) {
+  const key = process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
+
+  if (!key) return fallback(message, context);
+
+  const endpoint =
+    process.env.AI_BASE_URL ||
+    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+
+  const session = keyFor(context);
+  const history = histories.get(session) || [];
+
+  history.push({
+    role: 'user',
+    content: String(message)
+  });
+
+  const safeContext = {
+    role: context.role,
+    bookings: context.bookings || [],
+    platform: context.platform || {}
+  };
+
+  const messages = [
+    { role: 'system', content: SYSTEM },
+    {
+      role: 'system',
+      content:
+        'Relevant SevaHub context (use only when useful): ' +
+        JSON.stringify(safeContext)
+    },
+    ...history.slice(-MAX_TURNS)
+  ];
+
+  let lastError;
+
+  for (const model of uniqueModels()) {
+    try {
+      console.log(`[AI] Trying model: ${model}`);
+
+      const answer = await callModel({
+        endpoint,
+        key,
+        model,
+        messages
+      });
+
+      console.log(`[AI] Success with: ${model}`);
+
+      history.push({
+        role: 'assistant',
+        content: answer
+      });
+
+      histories.set(session, history.slice(-MAX_TURNS));
+
+      return answer;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[AI] ${model} failed: ${err.message}`);
+
+      // Capacity/rate/model errors -> automatically try next model.
+      if ([404, 429, 500, 502, 503, 504].includes(err.status)) {
+        continue;
+      }
+
+      // Invalid API key etc. won't be fixed by switching models.
+      break;
+    }
+  }
+
+  console.error('[AI] All providers/models failed:', lastError?.message);
+
+  // Never show ugly provider JSON/errors to the user.
+  return fallback(message, context);
 }
-module.exports={reply};
+
+function fallback(message, context) {
+  const q = String(message || '').trim().toLowerCase();
+
+  const services = context?.services || [
+    { name: 'Cleaning', base_price: 150 },
+    { name: 'Plumbing', base_price: 250 },
+    { name: 'Electrician', base_price: 200 },
+    { name: 'AC Repair', base_price: 500 },
+    { name: 'Appliance Repair', base_price: 450 },
+    { name: 'Beauty & Grooming', base_price: 300 },
+    { name: 'Painting', base_price: 450 },
+    { name: 'Carpenter', base_price: 350 },
+    { name: 'Home Shifting', base_price: 500 },
+    { name: 'Pest Control', base_price: 500 },
+    { name: 'Computer/Laptop Repair', base_price: 700 },
+    { name: 'Other', base_price: 100 }
+  ];
+
+  const price = name =>
+    services.find(s => s.name === name)?.base_price || 0;
+
+  if (/^(hi|hii+|hello|hey|helo+|bhai+|bro+|yaar|namaste)\b/.test(q)) {
+    return 'Haan bhai 😄 bata, kya help chahiye? Ghar ki koi problem ho, SevaHub booking, coding, study ya kuch random—poochh le.';
+  }
+
+  if (/\b(thanks|thank you|thx|shukriya)\b/.test(q)) {
+    return 'Koi scene nahi bhai 😄 aur kuch ho toh bata.';
+  }
+
+  if (
+    /bed|bedroom furniture|charpai|palang|furniture|wood|wooden|door|almirah|wardrobe|table|chair|carpenter/.test(
+      q
+    )
+  ) {
+    return `🪚 Bhai ye **Carpenter** wala kaam lag raha hai. Agar bed toot gaya hai, joint loose hai ya awaaz aa rahi hai toh carpenter frame/joints inspect karke repair kar sakta hai. SevaHub par starting price **₹${price(
+      'Carpenter'
+    )}** hai; final price damage dekhkar worker se confirm/negotiation kar lena.`;
+  }
+
+  if (/clean|safai|cleaning/.test(q)) {
+    return `🧹 Cleaning service best rahegi bhai. Starting price **₹${price(
+      'Cleaning'
+    )}** hai.`;
+  }
+
+  if (/plumb|tap|sink|pipe|leak|nal|paani leak/.test(q)) {
+    return `🔧 Ye Plumbing problem lag rahi hai. Starting price **₹${price(
+      'Plumbing'
+    )}** hai.`;
+  }
+
+  if (/electric|switch|fan|light|wiring|socket/.test(q)) {
+    return `⚡ Electrician service suitable rahegi bhai. Starting price **₹${price(
+      'Electrician'
+    )}** hai.`;
+  }
+
+  if (/\bac\b|air conditioner|cooling/.test(q)) {
+    return `❄️ AC Repair service best rahegi. Starting price **₹${price(
+      'AC Repair'
+    )}** hai.`;
+  }
+
+  if (/fridge|washing machine|microwave|oven|appliance/.test(q)) {
+    return `🔌 Appliance Repair suitable rahegi. Starting price **₹${price(
+      'Appliance Repair'
+    )}** hai.`;
+  }
+
+  if (/paint|wall colour|wall color|painting/.test(q)) {
+    return `🎨 Painting service suitable rahegi. Starting price **₹${price(
+      'Painting'
+    )}** hai.`;
+  }
+
+  if (/shift|moving|packing|unpacking|house shifting/.test(q)) {
+    return `📦 Home Shifting service best rahegi. Starting price **₹${price(
+      'Home Shifting'
+    )}** hai.`;
+  }
+
+  if (/pest|termite|cockroach|mosquito/.test(q)) {
+    return `🐜 Pest Control service suitable rahegi. Starting price **₹${price(
+      'Pest Control'
+    )}** hai.`;
+  }
+
+  if (/laptop|computer|pc|printer/.test(q)) {
+    return `💻 Computer/Laptop Repair service best rahegi. Starting price **₹${price(
+      'Computer/Laptop Repair'
+    )}** hai.`;
+  }
+
+  if (/bargain|counter|offer|negotiate|negotiation/.test(q)) {
+    return 'Bhai user aur worker dono offer/counter offer bhej sakte hain. Receiver Accept, Reject ya Counter kar sakta hai. Work scope clear karke final fair price decide kar lena.';
+  }
+
+  if (/community|society|colony|park/.test(q)) {
+    return 'Community service shared locality need ke liye hai—jaise common-area cleaning, park maintenance, lighting repair ya event setup. Cooperative multiple workers ko coordinate kar sakta hai.';
+  }
+
+  if (/booking|status/.test(q)) {
+    return `Tumhari recent bookings: ${
+      (context?.bookings || []).length
+    }. Exact status My Bookings section mein check kar sakte ho.`;
+  }
+
+  return 'Bhai AI service abhi temporarily busy hai 😅. Thodi der baad dobara try karna. SevaHub service/booking related problem hai toh details bata, main basic help abhi bhi kar sakta hoon.';
+}
+
+module.exports = { reply };
