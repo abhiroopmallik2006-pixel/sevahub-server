@@ -73,6 +73,20 @@ function initLiveChat(){
    const content=document.getElementById('userContent');
    if(content && content.querySelector('.booking-list-marker')) userBookings();
   });
+  chatSocket.on('notification:new', payload => {
+  if(state.role === 'USER'){
+    loadUserStats();
+
+    const content = document.getElementById('userContent');
+    if(content?.querySelector('.booking-list-marker')){
+      userBookings();
+    }
+  }
+
+  if(state.role === 'WORKER'){
+    loadWorkerStats();
+  }
+});
   chatSocket.on('booking-completed',payload=>{
    if(state.role==='USER'){
     toast(`Service completed · +${Number(payload?.gems||0)} GEMS`);
@@ -264,14 +278,15 @@ async function loadUserStats(){
  try{
   if(isDemo){
    const d=db(),rows=d.bookings.filter(b=>b.userId===state.user.id);
-   document.getElementById('statBookings').textContent=rows.filter(b=>!['COMPLETED','CANCELLED','REJECTED'].includes(b.status)).length;
+   document.getElementById('statBookings').textContent=
+   rows.filter(b=>['ACCEPTED','IN_PROGRESS'].includes(b.status)).length;
    document.getElementById('statCoins').textContent=d.coins[state.user.id]||0;
    document.getElementById('statBargains').textContent=d.offers.filter(o=>o.status==='PENDING'&&rows.some(b=>b.id===o.bookingId)).length;
    document.getElementById('statCompleted').textContent=rows.filter(b=>b.status==='COMPLETED').length;
   }else{
    const [bookingsRes,balanceRes]=await Promise.all([api('/bookings'),api('/rewards/balance')]);
    const rows=bookingsRes.data||[];
-   document.getElementById('statBookings').textContent=rows.filter(b=>!['COMPLETED','CANCELLED','REJECTED'].includes(b.status)).length;
+     rows.filter(b=>['ACCEPTED','IN_PROGRESS'].includes(b.status)).length;
    document.getElementById('statCoins').textContent=balanceRes.data.gems;
    document.getElementById('statBargains').textContent=rows.filter(b=>b.status==='BARGAINING').length;
    document.getElementById('statCompleted').textContent=rows.filter(b=>b.status==='COMPLETED').length;
@@ -515,7 +530,23 @@ async function loadWorkerBargainsLive(){
 }
 function respondDemo(oid,action){const d=db(),o=d.offers.find(x=>x.id===oid);if(!o)return;o.status=action==='ACCEPT'?'ACCEPTED':'REJECTED';const b=d.bookings.find(x=>x.id===o.bookingId);if(action==='ACCEPT'){b.status='ACCEPTED';b.finalPrice=o.amount;d.offers.filter(x=>x.bookingId===b.id&&x.id!==oid&&x.status==='PENDING').forEach(x=>x.status='REJECTED')}else b.status='REJECTED';d.notifications.push({userId:b.userId,title:action==='ACCEPT'?'Bargain accepted':'Bargain rejected',message:action==='ACCEPT'?`Worker accepted ${money(o.amount)}.`:'Worker rejected your offer.'});saveDB(d);toast(action==='ACCEPT'?'Accepted':'Rejected');workerBargains()}
 function counterWorker(oid){const amount=prompt('Enter your counter-offer (₹):');if(!amount)return;const n=Number(amount);if(!(n>0))return toast('Invalid amount');const d=db(),o=d.offers.find(x=>x.id===oid),b=d.bookings.find(x=>x.id===o.bookingId),w=d.workers.find(x=>x.id===b.workerId);d.offers.filter(x=>x.bookingId===b.id&&x.status==='PENDING').forEach(x=>x.status='COUNTERED');d.offers.push({id:Date.now(),bookingId:b.id,senderId:state.user.id,receiverId:b.userId,senderRole:'WORKER',amount:n,message:'Counter offer',status:'PENDING',createdAt:new Date().toISOString()});d.notifications.push({userId:b.userId,title:'Worker counter-offer',message:`${w.name} counter-offered ${money(n)}.`});saveDB(d);toast('Counter-offer sent');workerBargains()}
-async function respondLive(id,action){try{await api(`/bargains/${id}/respond`,{method:'PUT',body:JSON.stringify({action})});toast(action==='ACCEPT'?'Accepted':'Rejected');loadWorkerBargainsLive()}catch(e){toast(e.message)}}
+async function respondLive(id,action){
+  try{
+    await api(`/bargains/${id}/respond`,{
+      method:'PUT',
+      body:JSON.stringify({action})
+    });
+
+    toast(action==='ACCEPT'?'Accepted':'Rejected');
+
+    loadWorkerStats();
+    loadWorkerBargainsLive();
+
+  }catch(e){
+    toast(e.message);
+  }
+}
+(id,action){try{await api(`/bargains/${id}/respond`,{method:'PUT',body:JSON.stringify({action})});toast(action==='ACCEPT'?'Accepted':'Rejected');loadWorkerBargainsLive()}catch(e){toast(e.message)}}
 async function counterLiveOffer(offerId,bookingId){const amount=prompt('Enter your counter-offer (₹):');if(!amount)return;const n=Number(amount);if(!(n>0))return toast('Invalid amount');try{await api(`/bargains/${offerId}/respond`,{method:'PUT',body:JSON.stringify({action:'COUNTER',amount:n,message:'Counter offer'})});toast('Counter-offer sent — waiting for the other side');if(state.role==='WORKER')loadWorkerBargainsLive();else showBargainLive(bookingId,state.booking?.originalPrice||0)}catch(e){toast(e.message)}}
 function workerBookings(){
  const box=document.getElementById('workerContent');
