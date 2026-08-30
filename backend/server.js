@@ -27,6 +27,7 @@ app.use('/api/workers',require('./routes/workers'));
 app.use('/api/bookings',require('./routes/bookings'));
 app.use('/api/bargains',require('./routes/bargains'));
 app.use('/api/rewards',require('./routes/rewards'));
+app.use('/api/reviews',require('./routes/reviews'));
 app.use('/api/ai',require('./routes/ai'));
 app.use('/api/chat',require('./routes/chat'));
 
