@@ -286,7 +286,7 @@ async function loadUserStats(){
   }else{
    const [bookingsRes,balanceRes]=await Promise.all([api('/bookings'),api('/rewards/balance')]);
    const rows=bookingsRes.data||[];
-     rows.filter(b=>['ACCEPTED','IN_PROGRESS'].includes(b.status)).length;
+   document.getElementById('statBookings').textContent=rows.filter(b=>['ACCEPTED','IN_PROGRESS'].includes(b.status)).length;
    document.getElementById('statCoins').textContent=balanceRes.data.gems;
    document.getElementById('statBargains').textContent=rows.filter(b=>b.status==='BARGAINING').length;
    document.getElementById('statCompleted').textContent=rows.filter(b=>b.status==='COMPLETED').length;
@@ -546,7 +546,7 @@ async function respondLive(id,action){
     toast(e.message);
   }
 }
-(id,action){try{await api(`/bargains/${id}/respond`,{method:'PUT',body:JSON.stringify({action})});toast(action==='ACCEPT'?'Accepted':'Rejected');loadWorkerBargainsLive()}catch(e){toast(e.message)}}
+
 async function counterLiveOffer(offerId,bookingId){const amount=prompt('Enter your counter-offer (₹):');if(!amount)return;const n=Number(amount);if(!(n>0))return toast('Invalid amount');try{await api(`/bargains/${offerId}/respond`,{method:'PUT',body:JSON.stringify({action:'COUNTER',amount:n,message:'Counter offer'})});toast('Counter-offer sent — waiting for the other side');if(state.role==='WORKER')loadWorkerBargainsLive();else showBargainLive(bookingId,state.booking?.originalPrice||0)}catch(e){toast(e.message)}}
 function workerBookings(){
  const box=document.getElementById('workerContent');
