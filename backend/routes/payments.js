@@ -89,8 +89,8 @@ router.post('/order',auth,authorize('USER'),async(req,res,next)=>{try{
 
   const amountRupees=Number(booking.final_price??booking.original_price??0);
   if(!(amountRupees>0))return res.status(400).json({success:false,message:'Invalid booking amount'});
-  if(amountRupees>500000)return res.status(400).json({success:false,message:'Amount is above the supported single-payment limit'});
   const amountPaise=Math.round(amountRupees*100);
+  if(amountPaise<100)return res.status(400).json({success:false,message:'Payment amount must be at least ₹1'});
 
   const [existingRows]=await pool.query('SELECT * FROM payments WHERE booking_id=? AND user_id=?',[bookingId,req.user.id]);
   const existing=existingRows[0];
@@ -104,8 +104,7 @@ router.post('/order',auth,authorize('USER'),async(req,res,next)=>{try{
     amount:amountPaise,
     currency:'INR',
     receipt:`sevahub_${bookingId}_${Date.now()}`.slice(0,40),
-    notes:{booking_id:String(bookingId),user_id:String(req.user.id),source:'sevahub'},
-    capture:'automatic'
+    notes:{booking_id:String(bookingId),user_id:String(req.user.id),source:'sevahub'}
   });
 
   await pool.query(`INSERT INTO payments(booking_id,user_id,razorpay_order_id,amount,currency,status,payment_method,failure_reason) VALUES(?,?,?,?,?,'CREATED',?,NULL)
