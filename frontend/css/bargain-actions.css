@@ -1,0 +1,68 @@
+/* Homepage-orange action strip for bargaining controls. */
+#userContent .tabs:has(button[onclick*="respondOffer"]),
+#userContent .tabs:has(button[onclick*="respondDemoUser"]),
+#workerContent .tabs:has(button[onclick*="respondLive"]),
+#workerContent .tabs:has(button[onclick*="respondDemo"]){
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:10px;
+  border:1px solid rgba(111,48,18,.28);
+  border-radius:16px;
+  background:linear-gradient(155deg,#b95417 0%,#c96623 52%,#b94e14 100%) !important;
+  box-shadow:0 10px 22px rgba(109,58,25,.18);
+}
+
+#userContent .tabs:has(button[onclick*="respondOffer"]) .btn,
+#userContent .tabs:has(button[onclick*="respondDemoUser"]) .btn,
+#workerContent .tabs:has(button[onclick*="respondLive"]) .btn,
+#workerContent .tabs:has(button[onclick*="respondDemo"]) .btn,
+#userContent .card.panel:has(.bargain-history) > button[onclick*="openBookingChat"]{
+  background:linear-gradient(145deg,#d96c28,#b95417) !important;
+  color:#fff !important;
+  border:1px solid rgba(255,218,184,.38) !important;
+  box-shadow:0 5px #8f3d12,0 9px 14px rgba(109,58,25,.18) !important;
+  text-shadow:0 1px 1px rgba(75,29,7,.32) !important;
+}
+
+#userContent .tabs:has(button[onclick*="respondOffer"]) .btn:hover,
+#userContent .tabs:has(button[onclick*="respondDemoUser"]) .btn:hover,
+#workerContent .tabs:has(button[onclick*="respondLive"]) .btn:hover,
+#workerContent .tabs:has(button[onclick*="respondDemo"]) .btn:hover,
+#userContent .card.panel:has(.bargain-history) > button[onclick*="openBookingChat"]:hover{
+  background:linear-gradient(145deg,#e47a32,#a94713) !important;
+  color:#fff !important;
+}
+
+body.dark #userContent .tabs:has(button[onclick*="respondOffer"]),
+body.dark #userContent .tabs:has(button[onclick*="respondDemoUser"]),
+body.dark #workerContent .tabs:has(button[onclick*="respondLive"]),
+body.dark #workerContent .tabs:has(button[onclick*="respondDemo"]),
+.dark #userContent .tabs:has(button[onclick*="respondOffer"]),
+.dark #userContent .tabs:has(button[onclick*="respondDemoUser"]),
+.dark #workerContent .tabs:has(button[onclick*="respondLive"]),
+.dark #workerContent .tabs:has(button[onclick*="respondDemo"]){
+  background:linear-gradient(155deg,#7f3510,#a94713 55%,#78300d 100%) !important;
+  border-color:#6f2e0e !important;
+}
+
+@media(max-width:650px){
+  #userContent .tabs:has(button[onclick*="respondOffer"]),
+  #userContent .tabs:has(button[onclick*="respondDemoUser"]),
+  #workerContent .tabs:has(button[onclick*="respondLive"]),
+  #workerContent .tabs:has(button[onclick*="respondDemo"]){
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scrollbar-width:none;
+  }
+  #userContent .tabs:has(button[onclick*="respondOffer"])::-webkit-scrollbar,
+  #userContent .tabs:has(button[onclick*="respondDemoUser"])::-webkit-scrollbar,
+  #workerContent .tabs:has(button[onclick*="respondLive"])::-webkit-scrollbar,
+  #workerContent .tabs:has(button[onclick*="respondDemo"])::-webkit-scrollbar{display:none}
+  #userContent .tabs:has(button[onclick*="respondOffer"]) .btn,
+  #userContent .tabs:has(button[onclick*="respondDemoUser"]) .btn,
+  #workerContent .tabs:has(button[onclick*="respondLive"]) .btn,
+  #workerContent .tabs:has(button[onclick*="respondDemo"]) .btn{flex:0 0 auto}
+}
