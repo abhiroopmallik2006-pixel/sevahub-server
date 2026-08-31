@@ -1,0 +1,58 @@
+/* Compact clickable account icon replacing the name/role pill. */
+.nav .account-profile-button{
+  width:42px;height:42px;min-width:42px;padding:0;border-radius:50%;
+  display:grid;place-items:center;cursor:pointer;
+  border:1px solid rgba(117,74,44,.28);
+  background:rgba(255,248,241,.72);color:#8f441c;
+  box-shadow:0 6px 14px rgba(83,42,20,.12);
+}
+.nav .account-profile-button svg{width:23px;height:23px;display:block}
+.nav .account-profile-button:hover{transform:translateY(-1px);background:#fff8f1}
+.nav .account-profile-button:active{transform:translateY(1px)}
+
+.account-profile-modal{
+  position:fixed;inset:0;z-index:10080;display:flex;align-items:center;justify-content:center;
+  padding:18px;background:rgba(17,11,8,.52);backdrop-filter:blur(7px);
+}
+.account-profile-modal.hidden{display:none!important}
+.account-profile-dialog{
+  width:min(470px,100%);max-height:88vh;overflow:auto;padding:20px;border-radius:24px;
+  background:linear-gradient(145deg,#f9c18d 0%,#f4b57c 48%,#f7c092 100%);
+  border:1px solid rgba(117,74,44,.28);color:#573018;
+  box-shadow:0 28px 76px rgba(63,31,15,.34);
+}
+.account-profile-head{display:grid;grid-template-columns:52px 1fr 38px;align-items:center;gap:12px;margin-bottom:14px}
+.account-profile-avatar{width:52px;height:52px;border-radius:17px;display:grid;place-items:center;background:#382b26;color:#ffb66f}
+.account-profile-avatar svg{width:28px;height:28px}
+.account-profile-title span{display:block;font-size:10px;letter-spacing:1.8px;font-weight:900;color:#9f4b1d;margin-bottom:3px}
+.account-profile-title h2{margin:0;color:#653116;font-size:24px}
+.account-profile-close{width:36px;height:36px;padding:0;border-radius:50%;border:1px solid rgba(117,74,44,.22);background:rgba(255,248,241,.58);color:#573018;box-shadow:none;font-weight:900;cursor:pointer}
+.account-profile-loading{padding:22px;text-align:center;border-radius:16px;background:rgba(255,248,241,.55);font-weight:800}
+.account-profile-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 14px;margin-bottom:12px;border-radius:16px;background:rgba(255,248,241,.58);border:1px solid rgba(117,74,44,.18)}
+.account-profile-summary b{font-size:16px}.account-profile-summary span{font-size:10px;font-weight:900;letter-spacing:1px;padding:6px 9px;border-radius:999px;background:#382b26;color:#ffb66f}
+.account-detail-section{margin-top:11px;padding:14px;border-radius:17px;background:#fff8f1;border:1px solid rgba(117,74,44,.18);box-shadow:0 8px 18px rgba(92,48,23,.08)}
+.account-detail-section h3{margin:0 0 9px;color:#7b3a19;font-size:14px}
+.account-detail-row{display:grid;grid-template-columns:minmax(105px,.8fr) minmax(0,1.35fr);gap:12px;padding:9px 0;border-bottom:1px solid rgba(117,74,44,.12);align-items:start}
+.account-detail-row:last-child{border-bottom:0}
+.account-detail-row span{font-size:11px;color:#806654;font-weight:700}
+.account-detail-row b{font-size:12px;color:#38251a;text-align:right;overflow-wrap:anywhere}
+
+.dark .nav .account-profile-button,body.dark .nav .account-profile-button{background:#10161a;color:#ffb46d;border-color:#30383d;box-shadow:0 6px 15px rgba(0,0,0,.36)}
+.dark .account-profile-dialog,body.dark .account-profile-dialog{background:#0b1013;color:#eef2f4;border-color:#273137;box-shadow:0 28px 70px rgba(0,0,0,.62)}
+.dark .account-profile-avatar,body.dark .account-profile-avatar{background:#1a2227;color:#ffb46d}
+.dark .account-profile-title h2,body.dark .account-profile-title h2{color:#ffb46d}.dark .account-profile-title span,body.dark .account-profile-title span{color:#dc8d55}
+.dark .account-profile-close,body.dark .account-profile-close{background:#11181c;color:#f3f5f6;border-color:#303a40}
+.dark .account-profile-loading,body.dark .account-profile-loading,.dark .account-profile-summary,body.dark .account-profile-summary{background:#11171b;border-color:#2a3338}
+.dark .account-detail-section,body.dark .account-detail-section{background:#0f1519;border-color:#29343a;box-shadow:0 8px 20px rgba(0,0,0,.30)}
+.dark .account-detail-section h3,body.dark .account-detail-section h3{color:#ffb46d}
+.dark .account-detail-row,body.dark .account-detail-row{border-bottom-color:#293239}
+.dark .account-detail-row span,body.dark .account-detail-row span{color:#aeb5ba}
+.dark .account-detail-row b,body.dark .account-detail-row b{color:#eef2f4}
+
+@media(max-width:650px){
+  .nav .account-profile-button{width:38px;height:38px;min-width:38px}
+  .nav .account-profile-button svg{width:21px;height:21px}
+  .account-profile-modal{align-items:flex-end;padding:0}
+  .account-profile-dialog{width:100%;max-height:90vh;border-radius:24px 24px 0 0;padding:18px 16px 24px}
+  .account-detail-row{grid-template-columns:100px minmax(0,1fr)}
+}
