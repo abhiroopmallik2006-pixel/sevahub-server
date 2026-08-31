@@ -34,7 +34,6 @@
 
   function ensureWorkerButton(){
     if(!loggedIn()||state.role!=='WORKER')return;
-    const tabs=document.querySelector('#workerContent')?.previousElementSibling;
     const dashboard=document.querySelector('main.dashboard');
     const tabBar=dashboard?.querySelector(':scope > .tabs');
     if(!tabBar||tabBar.querySelector('[data-notification-tab="worker"]'))return;
@@ -42,8 +41,8 @@
     btn.type='button';
     btn.className='btn secondary notification-tab-btn';
     btn.dataset.notificationTab='worker';
+    btn.setAttribute('onclick','workerNotifications()');
     btn.innerHTML='🔔 Notifications <span class="notification-badge hidden" data-notification-badge>0</span>';
-    btn.onclick=()=>window.workerNotifications();
     tabBar.appendChild(btn);
   }
 
@@ -128,7 +127,7 @@
     if(isDemo){
       if(role==='USER'&&originalUserNotifications)return originalUserNotifications();
       const rows=(db().notifications||[]).filter(n=>Number(n.userId)===Number(state.user.id)).reverse();
-      box.innerHTML=`<div class="card panel notification-center"><div class="split"><div><h2>🔔 Notifications</h2><p class="muted">Saved activity and updates for your SevaHub account.</p></div></div>${rows.length?`<div class="notification-list">${rows.map((n,i)=>`<div class="notification-item"><div class="notification-icon">🔔</div><div class="notification-main"><b>${esc(n.title||'Notification')}</b><p class="notification-message">${esc(n.message||'')}</p></div></div>`).join('')}</div>`:'<div class="empty">No notifications yet.</div>'}</div>`;
+      box.innerHTML=`<div class="card panel notification-center"><div class="split"><div><h2>🔔 Notifications</h2><p class="muted">Saved activity and updates for your SevaHub account.</p></div></div>${rows.length?`<div class="notification-list">${rows.map(n=>`<div class="notification-item"><div class="notification-icon">🔔</div><div class="notification-main"><b>${esc(n.title||'Notification')}</b><p class="notification-message">${esc(n.message||'')}</p></div></div>`).join('')}</div>`:'<div class="empty">No notifications yet.</div>'}</div>`;
       return;
     }
 
@@ -162,8 +161,7 @@
     notificationSocket.on('connect',()=>notificationSocket.emit('join-user-room',uid));
     notificationSocket.on('notification:new',payload=>{
       refreshUnreadCount();
-      const center=document.querySelector('.notification-center');
-      if(center){
+      if(document.querySelector('.notification-center')){
         openNotificationCenter(state.role).catch(()=>{});
       }
       if(payload?.title)toast(`🔔 ${payload.title}`);
