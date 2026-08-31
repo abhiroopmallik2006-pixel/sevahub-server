@@ -1,0 +1,132 @@
+/* Mobile/WebView fixes: keep the service-photo carousel visible and show the SevaHub app mark beside Popular services. */
+
+.popular-services-heading{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.popular-services-app-logo{
+  display:none;
+  width:38px;
+  height:38px;
+  flex:0 0 38px;
+  border-radius:11px;
+  overflow:hidden;
+  box-shadow:0 6px 14px rgba(91,42,14,.18);
+}
+.popular-services-app-logo svg{display:block;width:100%;height:100%}
+
+/* The Android app loads this server UI in a narrow WebView. auth-home.css used to hide
+   the entire right-side visual below 900px, so the photo carousel never appeared there. */
+@media(max-width:900px){
+  .auth-home-shell{
+    grid-template-columns:1fr!important;
+  }
+  .auth-login-panel{
+    min-height:100vh!important;
+  }
+  .auth-visual-panel{
+    display:flex!important;
+    position:relative!important;
+    min-height:390px!important;
+    height:auto!important;
+    padding:24px 14px 38px!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  .auth-visual-panel .auth-visual-copy{
+    display:none!important;
+  }
+  .auth-visual-panel:before,
+  .auth-visual-panel:after{
+    opacity:.45;
+  }
+  .auth-visual-stage.auth-service-showcase,
+  .auth-service-showcase{
+    display:flex!important;
+    width:min(94%,540px)!important;
+    height:320px!important;
+    margin:0!important;
+  }
+  .auth-photo-frame{
+    height:272px!important;
+    border-radius:21px!important;
+  }
+  .auth-photo-caption{
+    left:20px!important;
+    bottom:20px!important;
+    width:68%!important;
+  }
+  .auth-photo-caption h3{
+    font-size:25px!important;
+  }
+  .auth-photo-caption p{
+    font-size:12px!important;
+    line-height:1.42!important;
+  }
+  .auth-photo-top-chip{
+    right:12px!important;
+    top:12px!important;
+    font-size:10px!important;
+  }
+  .auth-photo-count-chip{
+    right:12px!important;
+    bottom:12px!important;
+  }
+  .auth-photo-dots{
+    margin-top:14px!important;
+  }
+
+  /* This is the same mark used by the Android launcher/settings icon. */
+  .popular-services-app-logo{
+    display:inline-grid;
+    place-items:center;
+  }
+}
+
+@media(max-width:480px){
+  .auth-visual-panel{
+    min-height:330px!important;
+    padding:18px 10px 30px!important;
+  }
+  .auth-visual-stage.auth-service-showcase,
+  .auth-service-showcase{
+    width:96%!important;
+    height:276px!important;
+  }
+  .auth-photo-frame{
+    height:232px!important;
+    border-radius:18px!important;
+  }
+  .auth-photo-caption{
+    left:15px!important;
+    bottom:15px!important;
+    width:72%!important;
+  }
+  .auth-photo-caption>span{
+    padding:5px 8px!important;
+    font-size:9px!important;
+    margin-bottom:6px!important;
+  }
+  .auth-photo-caption h3{
+    margin-bottom:5px!important;
+    font-size:20px!important;
+  }
+  .auth-photo-caption p{
+    display:none!important;
+  }
+  .auth-photo-top-chip{
+    padding:6px 8px!important;
+  }
+  .auth-photo-count-chip{
+    min-width:76px!important;
+    padding:6px 9px!important;
+  }
+  .auth-photo-count-chip b{font-size:18px!important}
+  .popular-services-app-logo{
+    width:34px;
+    height:34px;
+    flex-basis:34px;
+    border-radius:10px;
+  }
+}
