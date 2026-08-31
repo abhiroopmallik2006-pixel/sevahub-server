@@ -83,6 +83,40 @@
     }
   };
 
+  /* Workers can open their own complete review history directly from the worker dashboard. */
+  window.openMyWorkerReviews=async function(){
+    if(typeof state==='undefined'||state?.role!=='WORKER'||!state?.user)return;
+    try{
+      let workerId=null;
+      if(typeof isDemo!=='undefined'&&isDemo){
+        const d=db();
+        workerId=(d.workers||[]).find(w=>Number(w.userId??w.user_id)===Number(state.user.id))?.id||null;
+      }else{
+        const worker=(await api('/workers/me')).data||{};
+        workerId=worker.id||worker.worker_id||null;
+      }
+      if(!workerId)return toast('Worker profile not found');
+      await window.openWorkerReviews(Number(workerId));
+    }catch(err){
+      toast(err.message||'Could not load your reviews');
+    }
+  };
+
+  function ensureWorkerReviewsTab(){
+    try{
+      if(typeof state==='undefined'||state?.role!=='WORKER'||!state?.user)return;
+      const tabs=document.querySelector('.dashboard > .tabs');
+      if(!tabs||tabs.querySelector('.worker-my-reviews-tab'))return;
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='btn secondary worker-my-reviews-tab';
+      btn.innerHTML='⭐ Reviews';
+      btn.setAttribute('aria-label','View my customer reviews');
+      btn.onclick=window.openMyWorkerReviews;
+      tabs.appendChild(btn);
+    }catch(e){}
+  }
+
   // Replace the existing professional-card renderer with the same card plus See reviews.
   if(typeof workerHTML==='function'){
     const enhancedWorkerHTML=function(w,sid){
@@ -143,6 +177,10 @@
     window.initLiveChat=enhancedInitLiveChat;
   }
   setTimeout(bindChatNotificationPopup,0);
+
+  const workerTabObserver=new MutationObserver(()=>ensureWorkerReviewsTab());
+  workerTabObserver.observe(document.body,{childList:true,subtree:true});
+  setTimeout(ensureWorkerReviewsTab,0);
 
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape')window.closeWorkerReviews();
