@@ -1,0 +1,69 @@
+/* Unified header settings beside SEVAHUB. */
+.nav-brand-group{display:flex;align-items:center;gap:10px;min-width:0}
+.header-settings-button{
+  width:38px;height:38px;min-width:38px;padding:0;border-radius:50%;
+  display:grid;place-items:center;border:1px solid rgba(117,74,44,.24);
+  background:rgba(255,248,241,.60);color:#573018;
+  box-shadow:0 6px 14px rgba(83,42,20,.12);cursor:pointer;
+}
+.header-settings-button svg{width:25px;height:25px;display:block}
+.header-settings-button:hover{transform:translateY(-1px);background:rgba(255,248,241,.82)}
+.header-settings-button:active{transform:translateY(1px)}
+
+/* Legacy standalone controls stay hidden even if an older helper reinjects them. */
+.nav #locationNavButton,
+.nav .nav-actions>button.theme,
+.nav .nav-actions>button[onclick="toggleTheme()"],
+.nav .nav-actions>button[onclick="logout()"]{display:none!important}
+
+/* The old Popular services gear is retired. */
+.popular-services-settings-icon,.popular-services-app-logo{display:none!important}
+
+.sevahub-settings-modal{
+  position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;
+  padding:18px;background:rgba(17,11,8,.48);backdrop-filter:blur(7px);
+}
+.sevahub-settings-modal.hidden{display:none!important}
+.sevahub-settings-dialog{
+  width:min(430px,100%);border-radius:24px;padding:20px;
+  background:linear-gradient(145deg,#f9c18d 0%,#f4b57c 48%,#f7c092 100%);
+  border:1px solid rgba(117,74,44,.28);color:#573018;
+  box-shadow:0 26px 70px rgba(63,31,15,.30);
+}
+.sevahub-settings-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+.settings-kicker{display:block;font-size:10px;letter-spacing:2px;font-weight:900;color:#a84d1b;margin-bottom:4px}
+.sevahub-settings-head h2{margin:0;color:#713716;font-size:27px}
+.settings-close{
+  width:36px;height:36px;border-radius:50%;border:1px solid rgba(117,74,44,.22);
+  background:rgba(255,248,241,.58);color:#573018;box-shadow:none;font-weight:900;cursor:pointer;
+}
+.settings-profile{padding:14px 15px;margin-bottom:13px;border-radius:16px;background:rgba(255,248,241,.55);border:1px solid rgba(117,74,44,.18);display:flex;flex-direction:column;gap:3px}
+.settings-profile b{font-size:15px}.settings-profile span{font-size:11px;font-weight:800;letter-spacing:.8px;color:#9a4c20}
+.settings-menu{display:grid;gap:9px}
+.settings-row{
+  width:100%;display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:11px;
+  min-height:70px;padding:10px 13px;border-radius:17px;border:1px solid rgba(117,74,44,.20);
+  background:#fff8f1;color:#38251a;text-align:left;box-shadow:0 8px 18px rgba(92,48,23,.10);cursor:pointer;
+}
+.settings-row:hover{transform:translateY(-1px);border-color:rgba(185,84,23,.44)}
+.settings-row-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#f7c08e;font-size:19px}
+.settings-row-copy{display:flex;flex-direction:column;gap:3px}.settings-row-copy b{font-size:14px}.settings-row-copy small{font-size:11px;color:#776458}
+.settings-chevron{font-size:26px;color:#a25125;line-height:1}.settings-state{font-size:11px;font-weight:900;padding:6px 8px;border-radius:999px;background:#f7d2af;color:#7c3a19}
+.settings-logout{color:#8d2f1f}.settings-logout .settings-row-icon{background:#f4d2cb}
+
+.dark .header-settings-button,body.dark .header-settings-button{background:#10161a;color:#ffb46d;border-color:#30383d;box-shadow:0 6px 15px rgba(0,0,0,.36)}
+.dark .sevahub-settings-dialog,body.dark .sevahub-settings-dialog{background:#0b1013;color:#eef2f4;border-color:#273137;box-shadow:0 28px 70px rgba(0,0,0,.60)}
+.dark .sevahub-settings-head h2,body.dark .sevahub-settings-head h2{color:#ffb46d}.dark .settings-kicker,body.dark .settings-kicker{color:#e98c4c}
+.dark .settings-close,body.dark .settings-close{background:#11181c;color:#f3f5f6;border-color:#303a40}
+.dark .settings-profile,body.dark .settings-profile{background:#11171b;border-color:#2a3338;color:#eef2f4}.dark .settings-profile span,body.dark .settings-profile span{color:#d88b55}
+.dark .settings-row,body.dark .settings-row{background:#0f1519;color:#eef2f4;border-color:#29343a;box-shadow:0 8px 20px rgba(0,0,0,.34)}
+.dark .settings-row-icon,body.dark .settings-row-icon{background:#221810}.dark .settings-row-copy small,body.dark .settings-row-copy small{color:#aeb5ba}.dark .settings-state,body.dark .settings-state{background:#251b15;color:#ffb46d}
+.dark .settings-logout,body.dark .settings-logout{color:#ff9d8d}.dark .settings-logout .settings-row-icon,body.dark .settings-logout .settings-row-icon{background:#291616}
+
+@media(max-width:650px){
+  .nav-brand-group{gap:7px}
+  .header-settings-button{width:34px;height:34px;min-width:34px}
+  .header-settings-button svg{width:22px;height:22px}
+  .nav .nav-actions .pill{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sevahub-settings-dialog{border-radius:21px;padding:17px}
+}
