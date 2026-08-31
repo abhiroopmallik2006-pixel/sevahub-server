@@ -1,0 +1,19 @@
+/* Persistent notification center for both SevaHub roles. */
+.notification-tab-btn{position:relative}
+.notification-badge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:999px;background:#d92d20;color:#fff;font-size:11px;font-weight:800;line-height:1}
+.notification-center{display:flex;flex-direction:column;gap:12px}
+.notification-list{display:flex;flex-direction:column;gap:10px}
+.notification-item{display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid rgba(70,48,35,.14);border-radius:16px;background:rgba(255,248,240,.84);cursor:pointer;transition:transform .15s ease,border-color .15s ease,background .15s ease}
+.notification-item:hover{transform:translateY(-1px)}
+.notification-item.unread{border-color:rgba(185,84,23,.48);background:#fff2df}
+.notification-icon{width:42px;height:42px;flex:0 0 42px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:rgba(185,84,23,.12);font-size:20px}
+.notification-main{min-width:0;flex:1}
+.notification-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.notification-title-row b{overflow-wrap:anywhere}
+.notification-message{margin:5px 0 0;line-height:1.45;overflow-wrap:anywhere}
+.notification-time{font-size:12px;white-space:nowrap}
+.notification-unread-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#d92d20;margin-right:6px}
+body.dark .notification-item{background:#151515;border-color:#343434}
+body.dark .notification-item.unread{background:#211b17;border-color:#7e4a28}
+body.dark .notification-icon{background:#2a211b}
+@media(max-width:650px){.notification-title-row{flex-direction:column;gap:4px}.notification-time{white-space:normal}.notification-item{padding:12px}}
