@@ -1,26 +1,24 @@
-/* SevaHub interior dashboard: homepage burnt-orange/peach light mode + true black dark mode. */
-
+/* SevaHub interior dashboard: brown chrome + homepage-orange content panels. */
 .dashboard{padding-top:24px}
 
-/* Top greeting uses the exact burnt-orange family from the public homepage. */
+/* Brown greeting banner */
 .dashboard > .split:first-child{
   margin-bottom:20px;
   padding:28px 30px;
-  border:1px solid rgba(185,84,23,.35) !important;
+  border:1px solid #5b4035 !important;
   border-radius:24px;
-  background:linear-gradient(155deg,#b95417 0%,#c96623 52%,#b94e14 100%) !important;
-  box-shadow:0 16px 36px rgba(126,54,15,.22) !important;
+  background:linear-gradient(135deg,#382b26,#42322b) !important;
+  box-shadow:0 16px 36px rgba(77,38,20,.18) !important;
 }
 .dashboard > .split:first-child h1{
   margin:0 0 8px;
-  color:#fff !important;
+  color:#ffb56f !important;
   letter-spacing:-.8px;
   font-size:clamp(30px,3.2vw,43px);
-  text-shadow:0 2px 8px rgba(92,35,8,.18);
 }
-.dashboard > .split:first-child p{margin:0;color:rgba(255,255,255,.86) !important;font-size:16px}
+.dashboard > .split:first-child p{margin:0;color:#c9c5c1 !important;font-size:16px}
 
-/* Four coloured summary cards in one row. */
+/* Four summary cards in one row */
 .dashboard .stats{
   display:grid !important;
   grid-template-columns:repeat(4,minmax(0,1fr)) !important;
@@ -45,7 +43,7 @@
 .dashboard .stats .stat .muted{color:rgba(255,255,255,.9) !important;font-weight:800;font-size:14px}
 .dashboard .stats .stat b{margin-top:13px;color:#fff !important;text-shadow:0 2px 8px rgba(0,0,0,.18) !important;font-size:34px}
 
-/* Main navigation strip now uses the same homepage orange instead of brown. */
+/* Brown interior navigation strip */
 .dashboard > .tabs{
   display:flex;
   align-items:center;
@@ -54,10 +52,10 @@
   margin:0 0 30px;
   padding:8px 10px;
   min-height:60px;
-  border:1px solid rgba(185,84,23,.35) !important;
+  border:1px solid #60483d !important;
   border-radius:22px;
-  background:linear-gradient(155deg,#b95417 0%,#c96623 52%,#b94e14 100%) !important;
-  box-shadow:0 12px 30px rgba(126,54,15,.20) !important;
+  background:#382b26 !important;
+  box-shadow:0 12px 30px rgba(60,35,24,.18) !important;
   overflow-x:auto !important;
   overflow-y:hidden !important;
   scrollbar-width:none;
@@ -71,7 +69,7 @@
   border:0 !important;
   border-radius:12px;
   background:transparent !important;
-  color:#fff7ed !important;
+  color:#ffb46d !important;
   box-shadow:none !important;
   text-shadow:none !important;
   font-weight:800;
@@ -79,40 +77,58 @@
 }
 .dashboard > .tabs .btn::before{display:none}
 .dashboard > .tabs .btn:hover,
-.dashboard > .tabs .btn.secondary:hover{
-  background:rgba(255,208,93,.18) !important;
-  color:#ffd05d !important;
-}
+.dashboard > .tabs .btn.secondary:hover{background:#4c382f !important;color:#ffd0a3 !important}
 
-/* Replace stark white dashboard areas with warm peach/cream. */
+/* The large white interior area is now the homepage burnt-orange. */
 .dashboard #userContent > .panel,
 .dashboard #workerContent > .panel,
 .dashboard #userContent > .card,
 .dashboard #workerContent > .card{
-  border:1px solid #efc7a7 !important;
+  border:1px solid rgba(255,225,196,.35) !important;
   border-radius:22px;
-  background:linear-gradient(145deg,#fff3e5,#fbe6d4) !important;
-  box-shadow:0 15px 36px rgba(112,58,30,.10) !important;
-}
-.dashboard #userContent .service-card,
-.dashboard #userContent .worker-card,
-.dashboard #userContent .offer,
-.dashboard #workerContent .service-card,
-.dashboard #workerContent .worker-card,
-.dashboard #workerContent .offer{
-  background:#fff8f0 !important;
-  border-color:#edcfb8 !important;
+  background:linear-gradient(155deg,#b95417 0%,#c96623 52%,#b94e14 100%) !important;
+  color:#fff8ef !important;
+  box-shadow:0 16px 38px rgba(126,54,15,.22) !important;
 }
 .dashboard #userContent > .panel > h2,
 .dashboard #workerContent > .panel > h2,
+.dashboard #userContent > .card > h2,
+.dashboard #workerContent > .card > h2,
 .booking-list-marker > h2,
 .worker-payment-receipts > h2,
-.booking-chat h2{color:#963b17 !important}
-.booking-list-marker > .card.panel,#workerContent > .card.panel .offer{border-left:4px solid #fb923c !important}
-.booking-chat{border-top:4px solid #ea580c !important}
-.booking-chat .chat-body{background:#fff0e2 !important;border:1px solid #eebf9c !important;border-radius:14px}
+.booking-chat h2{color:#fff4e6 !important}
 
-/* -------- TRUE DARK MODE: no white/cream dashboard surfaces -------- */
+/* Keep inner service/booking cards readable on top of the orange section. */
+.dashboard #userContent > .card .service-card,
+.dashboard #userContent > .card .worker-card,
+.dashboard #userContent > .card .card,
+.dashboard #userContent > .card .offer,
+.dashboard #workerContent > .card .service-card,
+.dashboard #workerContent > .card .worker-card,
+.dashboard #workerContent > .card .card,
+.dashboard #workerContent > .card .offer,
+.dashboard #userContent > .panel .card,
+.dashboard #userContent > .panel .offer,
+.dashboard #workerContent > .panel .card,
+.dashboard #workerContent > .panel .offer{
+  background:#fff8f0 !important;
+  border-color:#edcfb8 !important;
+  color:#2e2925 !important;
+}
+.dashboard #userContent .service-card .muted,
+.dashboard #userContent .worker-card .muted,
+.dashboard #userContent .offer .muted,
+.dashboard #workerContent .service-card .muted,
+.dashboard #workerContent .worker-card .muted,
+.dashboard #workerContent .offer .muted{color:#776b62 !important}
+
+.booking-list-marker > .card.panel,#workerContent > .card.panel .offer{border-left:4px solid #ffb15f !important}
+.booking-chat{border-top:4px solid #ffd09c !important}
+.booking-chat .chat-body{background:#fff0e2 !important;border:1px solid #eebf9c !important;border-radius:14px;color:#2e2925 !important}
+.dashboard #userContent > .form .field label,
+.dashboard #workerContent > .form .field label{color:#fff8ef !important}
+
+/* True dark mode: no white outer dashboard areas. */
 body.dark,.app.dark{
   --bg:#050607;
   --surface:#0c1013;
@@ -128,7 +144,6 @@ body.dark::before,body.dark::after{opacity:.03 !important}
 .dark .theme,body.dark .theme{background:#07090b !important;color:#fff !important;border-color:#2b3034 !important}
 .dark .nav .pill,body.dark .nav .pill{background:#11171b !important;color:#ffb66f !important;border-color:#30383d !important}
 .dark .nav .btn.secondary,body.dark .nav .btn.secondary{background:#0d1418 !important;color:#ffb66f !important;border-color:#30383d !important;box-shadow:0 5px #020304,0 10px 16px rgba(0,0,0,.38) !important}
-
 .dark .dashboard > .split:first-child,body.dark .dashboard > .split:first-child{background:#171310 !important;border-color:#3b2c25 !important}
 .dark .dashboard > .tabs,body.dark .dashboard > .tabs{background:#171310 !important;border-color:#3b2c25 !important}
 .dark .dashboard #userContent > .panel,
@@ -156,14 +171,16 @@ body.dark .dashboard #workerContent .offer{
   border-color:#28343b !important;
   color:#eef1f3 !important;
 }
-.dark .dashboard .card::before,.dark .dashboard .card::after,body.dark .dashboard .card::before,body.dark .dashboard .card::after{opacity:.025 !important}
+.dark .dashboard #userContent .muted,
+.dark .dashboard #workerContent .muted,
+body.dark .dashboard #userContent .muted,
+body.dark .dashboard #workerContent .muted{color:#aab2b8 !important}
 .dark #userContent h2,.dark #workerContent h2,body.dark #userContent h2,body.dark #workerContent h2{color:#ffb36a !important}
-.dark .booking-chat .chat-body,body.dark .booking-chat .chat-body{background:#05080a !important;border-color:#273139 !important}
+.dark .booking-chat .chat-body,body.dark .booking-chat .chat-body{background:#05080a !important;border-color:#273139 !important;color:#f2f5f7 !important}
 .dark .msg,body.dark .msg{background:#12191e !important;color:#f2f5f7 !important}
 .dark .msg.user,body.dark .msg.user{background:#b94f1c !important;color:#fff !important}
 .dark .field input,.dark .field select,.dark .field textarea,body.dark .field input,body.dark .field select,body.dark .field textarea{background:#080c0f !important;color:#f2f5f7 !important;border-color:#303a40 !important}
 .dark .history-total,body.dark .history-total{background:#0a0f12 !important}
-.dark .muted,body.dark .muted{color:#aab2b8 !important}
 
 @media(max-width:900px){
   .dashboard .stats{grid-template-columns:repeat(4,minmax(155px,1fr)) !important;overflow-x:auto;overflow-y:hidden;padding:2px 2px 10px;scrollbar-width:none}
