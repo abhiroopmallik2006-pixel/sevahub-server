@@ -60,6 +60,16 @@
 .dark .settings-row-icon,body.dark .settings-row-icon{background:#221810}.dark .settings-row-copy small,body.dark .settings-row-copy small{color:#aeb5ba}.dark .settings-state,body.dark .settings-state{background:#251b15;color:#ffb46d}
 .dark .settings-logout,body.dark .settings-logout{color:#ff9d8d}.dark .settings-logout .settings-row-icon,body.dark .settings-logout .settings-row-icon{background:#291616}
 
+/* Desktop website uses the same unified header/settings layout as the app WebView. */
+@media(min-width:651px){
+  .nav-brand-group{display:flex!important;align-items:center!important;gap:10px!important}
+  .header-settings-button{display:grid!important}
+  .nav .nav-actions #locationNavButton,
+  .nav .nav-actions>button.theme,
+  .nav .nav-actions>button[onclick="toggleTheme()"],
+  .nav .nav-actions>button[onclick="logout()"]{display:none!important}
+}
+
 @media(max-width:650px){
   .nav-brand-group{gap:7px}
   .header-settings-button{width:34px;height:34px;min-width:34px}
