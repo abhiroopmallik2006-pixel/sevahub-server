@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS worker_availability (
   FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE
 );
 
+-- Only the latest opt-in location is stored. No location history is kept.
+CREATE TABLE IF NOT EXISTS user_locations (
+  user_id INT PRIMARY KEY,
+  latitude DECIMAL(10,7) NOT NULL,
+  longitude DECIMAL(10,7) NOT NULL,
+  accuracy_m DECIMAL(10,2),
+  sharing_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_location_sharing_updated (sharing_enabled,updated_at)
+);
+
 CREATE TABLE IF NOT EXISTS bookings (
   id INT PRIMARY KEY AUTO_INCREMENT,
   user_id INT NOT NULL,
