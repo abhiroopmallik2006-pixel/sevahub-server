@@ -20,6 +20,7 @@
   function baseViewFromDom(){
     const currentRole=role();
     if(document.querySelector('.booking-chat')) return {view:'chat'};
+    if(document.querySelector('.notification-center')) return {view:currentRole==='WORKER'?'worker-notifications':'user-notifications'};
     if(document.querySelector('.booking-list-marker')) return {view:'user-bookings'};
     if(document.querySelector('.gem-wallet')) return {view:'user-rewards'};
     if(document.querySelector('.spend-history-marker')) return {view:'user-spend'};
@@ -46,11 +47,6 @@
     try{return JSON.parse(sessionStorage.getItem(ROUTE_KEY)||'null')}catch(e){return null}
   }
 
-  /*
-    Android's WebView exits when it thinks there is no browser history.
-    Keep a hidden guard entry behind the dashboard so Android Back/swipe is
-    handed to WebView history instead of immediately closing the Activity.
-  */
   function ensureAndroidGuard(){
     if(!loggedIn()||guardInstalled) return;
     guardInstalled=true;
@@ -111,7 +107,6 @@
     }
   }
 
-  /* Optional hook for Android wrappers that explicitly ask JavaScript first. */
   window.sevahubNativeBack=function(){
     try{
       ensureAndroidGuard();
@@ -131,7 +126,6 @@
 
     ensureAndroidGuard();
 
-    /* Visible in-app Back buttons should traverse the same history stack. */
     if((text.startsWith('←')||text==='back'||text.includes('← back')) && history.state?.sevahub && !history.state.guard){
       if(code.includes('userServices()')||code.includes('userBookings()')||code.includes('workerBookings()')||code.includes('workerHome()')||code.includes('showWorkers(')){
         e.preventDefault();
@@ -165,6 +159,7 @@
     if(code.startsWith('workerBargains()')) return pushView('worker-bargains');
     if(code.startsWith('workerEarnings(')||code.startsWith('workerEarnings()')) return pushView('worker-earnings');
     if(code.startsWith('workerProfile()')) return pushView('worker-profile');
+    if(code.startsWith('workerNotifications()')) return pushView('worker-notifications');
 
     const bargain=code.match(/openExistingBargain\((\d+)\)/);
     if(bargain) return pushView('user-bargain',{bookingId:Number(bargain[1])});
@@ -176,7 +171,6 @@
   window.addEventListener('popstate',async function(e){
     const s=e.state;
 
-    /* Never let Android's first Back/swipe leave the app from dashboard root. */
     if(s?.sevahub&&s.guard){
       if(loggedIn()) restoreRoot();
       return;
@@ -203,6 +197,7 @@
         case 'worker-bargains': await callIfExists('workerBargains'); break;
         case 'worker-earnings': await callIfExists('workerEarnings'); break;
         case 'worker-profile': await callIfExists('workerProfile'); break;
+        case 'worker-notifications': await callIfExists('workerNotifications'); break;
         case 'chat': await callIfExists('openBookingChat',Number(s.bookingId),s.role||role()); break;
         default:
           if(role()==='WORKER') await callIfExists('workerHome');
@@ -216,7 +211,6 @@
     }
   });
 
-  /* Login/session restore renders asynchronously; install history as soon as dashboard exists. */
   const app=document.getElementById('app');
   if(app){
     const observer=new MutationObserver(()=>{
