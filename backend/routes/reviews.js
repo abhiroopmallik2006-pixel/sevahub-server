@@ -8,6 +8,34 @@ router.get('/my',auth,authorize('USER'),async(req,res,next)=>{try{
  res.json({success:true,data:rows});
 }catch(e){next(e)}});
 
+// Review history shown from professional cards before a user books a worker.
+router.get('/worker/:workerId',auth,async(req,res,next)=>{try{
+ const workerId=Number(req.params.workerId);
+ if(!Number.isInteger(workerId)||workerId<1)return res.status(400).json({success:false,message:'Invalid worker'});
+
+ const [workers]=await pool.query(`SELECT w.id,w.rating,w.total_reviews,u.full_name worker_name
+  FROM workers w JOIN users u ON u.id=w.user_id WHERE w.id=? LIMIT 1`,[workerId]);
+ if(!workers.length)return res.status(404).json({success:false,message:'Worker not found'});
+
+ const [rows]=await pool.query(`SELECT r.id,r.booking_id,r.rating,r.comment,r.created_at,
+   u.full_name reviewer_name,s.name service_name
+   FROM reviews r
+   JOIN users u ON u.id=r.user_id
+   LEFT JOIN bookings b ON b.id=r.booking_id
+   LEFT JOIN services s ON s.id=b.service_id
+   WHERE r.worker_id=? AND r.is_removed=FALSE
+   ORDER BY r.created_at DESC LIMIT 200`,[workerId]);
+
+ const worker=workers[0];
+ res.json({success:true,data:{
+  workerId:worker.id,
+  workerName:worker.worker_name,
+  averageRating:Number(worker.rating||0),
+  totalReviews:Number(worker.total_reviews||rows.length||0),
+  reviews:rows
+ }});
+}catch(e){next(e)}});
+
 router.post('/',auth,authorize('USER'),async(req,res,next)=>{
  const bookingId=Number(req.body.bookingId);
  const rating=Number(req.body.rating);
