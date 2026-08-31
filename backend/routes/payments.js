@@ -3,14 +3,20 @@ const https=require('https');
 const crypto=require('crypto');
 const pool=require('../config');
 const {auth,authorize}=require('../middleware/auth');
+const {notify}=require('../utils/notifications');
 
 const router=express.Router();
+const PLATFORM_FEE=Number(process.env.PLATFORM_FEE_RUPEES||5);
 
 function keys(){
   return {
     id:String(process.env.RAZORPAY_KEY_ID||'').trim(),
     secret:String(process.env.RAZORPAY_KEY_SECRET||'').trim()
   };
+}
+
+function receiptNumber(id){
+  return `SH-${String(id).padStart(6,'0')}`;
 }
 
 async function ensurePaymentsTable(){
@@ -22,6 +28,8 @@ async function ensurePaymentsTable(){
     razorpay_payment_id VARCHAR(100) UNIQUE NULL,
     razorpay_signature VARCHAR(255) NULL,
     amount DECIMAL(10,2) NOT NULL,
+    platform_fee DECIMAL(10,2) NOT NULL DEFAULT 5.00,
+    worker_net_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     currency VARCHAR(10) NOT NULL DEFAULT 'INR',
     status ENUM('CREATED','PAID','FAILED') NOT NULL DEFAULT 'CREATED',
     payment_method VARCHAR(30) NULL,
@@ -33,6 +41,11 @@ async function ensurePaymentsTable(){
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_payments_user_status (user_id,status)
   )`);
+
+  const [cols]=await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='payments'`);
+  const names=new Set(cols.map(c=>c.COLUMN_NAME));
+  if(!names.has('platform_fee')) await pool.query(`ALTER TABLE payments ADD COLUMN platform_fee DECIMAL(10,2) NOT NULL DEFAULT 5.00 AFTER amount`);
+  if(!names.has('worker_net_amount')) await pool.query(`ALTER TABLE payments ADD COLUMN worker_net_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER platform_fee`);
 }
 
 function razorpayRequest(method,path,body){
@@ -67,8 +80,27 @@ function razorpayRequest(method,path,body){
 
 router.get('/my',auth,authorize('USER'),async(req,res,next)=>{try{
   await ensurePaymentsTable();
-  const [rows]=await pool.query(`SELECT id,booking_id,razorpay_order_id,razorpay_payment_id,amount,currency,status,payment_method,paid_at,created_at,updated_at FROM payments WHERE user_id=? ORDER BY created_at DESC`,[req.user.id]);
-  res.json({success:true,data:rows});
+  const [rows]=await pool.query(`SELECT p.id,p.booking_id,p.razorpay_order_id,p.razorpay_payment_id,p.amount,p.platform_fee,p.worker_net_amount,p.currency,p.status,p.payment_method,p.paid_at,p.created_at,p.updated_at,s.name service_name,wu.full_name worker_name
+    FROM payments p
+    JOIN bookings b ON b.id=p.booking_id
+    JOIN services s ON s.id=b.service_id
+    JOIN workers w ON w.id=b.worker_id
+    JOIN users wu ON wu.id=w.user_id
+    WHERE p.user_id=? ORDER BY p.created_at DESC`,[req.user.id]);
+  res.json({success:true,data:rows.map(r=>({...r,receipt_number:receiptNumber(r.id)}))});
+}catch(e){next(e)}});
+
+router.get('/worker',auth,authorize('WORKER'),async(req,res,next)=>{try{
+  await ensurePaymentsTable();
+  const [rows]=await pool.query(`SELECT p.id,p.booking_id,p.razorpay_order_id,p.razorpay_payment_id,p.amount,p.platform_fee,p.worker_net_amount,p.currency,p.status,p.payment_method,p.paid_at,p.created_at,p.updated_at,s.name service_name,cu.full_name customer_name
+    FROM payments p
+    JOIN bookings b ON b.id=p.booking_id
+    JOIN workers w ON w.id=b.worker_id
+    JOIN users cu ON cu.id=b.user_id
+    JOIN services s ON s.id=b.service_id
+    WHERE w.user_id=? AND p.status='PAID'
+    ORDER BY p.paid_at DESC,p.id DESC`,[req.user.id]);
+  res.json({success:true,data:rows.map(r=>({...r,receipt_number:receiptNumber(r.id)}))});
 }catch(e){next(e)}});
 
 router.post('/order',auth,authorize('USER'),async(req,res,next)=>{try{
@@ -91,27 +123,30 @@ router.post('/order',auth,authorize('USER'),async(req,res,next)=>{try{
   if(!(amountRupees>0))return res.status(400).json({success:false,message:'Invalid booking amount'});
   const amountPaise=Math.round(amountRupees*100);
   if(amountPaise<100)return res.status(400).json({success:false,message:'Payment amount must be at least ₹1'});
+  const platformFee=Math.min(Math.max(PLATFORM_FEE,0),amountRupees);
+  const workerNet=Math.max(0,amountRupees-platformFee);
 
   const [existingRows]=await pool.query('SELECT * FROM payments WHERE booking_id=? AND user_id=?',[bookingId,req.user.id]);
   const existing=existingRows[0];
   if(existing?.status==='PAID')return res.status(409).json({success:false,message:'This booking is already paid'});
 
   if(existing?.status==='CREATED'&&existing.razorpay_order_id&&Number(existing.amount)===amountRupees){
-    return res.json({success:true,data:{bookingId,keyId,orderId:existing.razorpay_order_id,amount:amountPaise,currency:'INR',name:booking.full_name,email:booking.email,contact:booking.phone||'',reused:true}});
+    await pool.query('UPDATE payments SET platform_fee=?,worker_net_amount=? WHERE id=?',[platformFee,workerNet,existing.id]);
+    return res.json({success:true,data:{bookingId,keyId,orderId:existing.razorpay_order_id,amount:amountPaise,currency:'INR',name:booking.full_name,email:booking.email,contact:booking.phone||'',platformFee,workerNet,reused:true}});
   }
 
   const order=await razorpayRequest('POST','/v1/orders',{
     amount:amountPaise,
     currency:'INR',
     receipt:`sevahub_${bookingId}_${Date.now()}`.slice(0,40),
-    notes:{booking_id:String(bookingId),user_id:String(req.user.id),source:'sevahub'}
+    notes:{booking_id:String(bookingId),user_id:String(req.user.id),source:'sevahub',platform_fee:String(platformFee)}
   });
 
-  await pool.query(`INSERT INTO payments(booking_id,user_id,razorpay_order_id,amount,currency,status,payment_method,failure_reason) VALUES(?,?,?,?,?,'CREATED',?,NULL)
-    ON DUPLICATE KEY UPDATE razorpay_order_id=VALUES(razorpay_order_id),razorpay_payment_id=NULL,razorpay_signature=NULL,amount=VALUES(amount),currency=VALUES(currency),status='CREATED',payment_method=VALUES(payment_method),failure_reason=NULL,paid_at=NULL`,
-    [bookingId,req.user.id,order.id,amountRupees,'INR',booking.payment_method]);
+  await pool.query(`INSERT INTO payments(booking_id,user_id,razorpay_order_id,amount,platform_fee,worker_net_amount,currency,status,payment_method,failure_reason) VALUES(?,?,?,?,?,?,?,'CREATED',?,NULL)
+    ON DUPLICATE KEY UPDATE razorpay_order_id=VALUES(razorpay_order_id),razorpay_payment_id=NULL,razorpay_signature=NULL,amount=VALUES(amount),platform_fee=VALUES(platform_fee),worker_net_amount=VALUES(worker_net_amount),currency=VALUES(currency),status='CREATED',payment_method=VALUES(payment_method),failure_reason=NULL,paid_at=NULL`,
+    [bookingId,req.user.id,order.id,amountRupees,platformFee,workerNet,'INR',booking.payment_method]);
 
-  res.status(201).json({success:true,data:{bookingId,keyId,orderId:order.id,amount:Number(order.amount||amountPaise),currency:order.currency||'INR',name:booking.full_name,email:booking.email,contact:booking.phone||''}});
+  res.status(201).json({success:true,data:{bookingId,keyId,orderId:order.id,amount:Number(order.amount||amountPaise),currency:order.currency||'INR',name:booking.full_name,email:booking.email,contact:booking.phone||'',platformFee,workerNet}});
 }catch(e){next(e)}});
 
 router.post('/verify',auth,authorize('USER'),async(req,res,next)=>{try{
@@ -128,7 +163,7 @@ router.post('/verify',auth,authorize('USER'),async(req,res,next)=>{try{
   const [rows]=await pool.query('SELECT * FROM payments WHERE booking_id=? AND user_id=?',[bookingId,req.user.id]);
   if(!rows.length)return res.status(404).json({success:false,message:'Payment order not found'});
   const payment=rows[0];
-  if(payment.status==='PAID')return res.json({success:true,message:'Payment already verified',data:{bookingId,paymentId:payment.razorpay_payment_id,status:'PAID'}});
+  if(payment.status==='PAID')return res.json({success:true,message:'Payment already verified',data:{bookingId,paymentId:payment.razorpay_payment_id,status:'PAID',receiptNumber:receiptNumber(payment.id),amount:Number(payment.amount),platformFee:Number(payment.platform_fee),workerNet:Number(payment.worker_net_amount)}});
   if(String(payment.razorpay_order_id)!==returnedOrderId)return res.status(400).json({success:false,message:'Payment order mismatch'});
 
   const expected=crypto.createHmac('sha256',secret).update(`${payment.razorpay_order_id}|${paymentId}`).digest('hex');
@@ -142,7 +177,13 @@ router.post('/verify',auth,authorize('USER'),async(req,res,next)=>{try{
 
   await pool.query(`UPDATE payments SET razorpay_payment_id=?,razorpay_signature=?,status='PAID',failure_reason=NULL,paid_at=NOW() WHERE id=?`,[paymentId,receivedSignature,payment.id]);
 
-  res.json({success:true,message:'Payment verified successfully',data:{bookingId,paymentId,status:'PAID',amount:Number(payment.amount)}});
+  const [workerRows]=await pool.query(`SELECT w.user_id FROM bookings b JOIN workers w ON w.id=b.worker_id WHERE b.id=?`,[bookingId]);
+  const workerUserId=workerRows[0]?.user_id;
+  if(workerUserId){
+    notify(req.app,workerUserId,'Payment received',`Booking #${bookingId}: customer paid ₹${Number(payment.amount).toFixed(2)}. Platform fee ₹${Number(payment.platform_fee).toFixed(2)}. Your net amount is ₹${Number(payment.worker_net_amount).toFixed(2)}.`,'PAYMENT').catch(()=>{});
+  }
+
+  res.json({success:true,message:'Payment verified successfully',data:{bookingId,paymentId,status:'PAID',receiptNumber:receiptNumber(payment.id),amount:Number(payment.amount),platformFee:Number(payment.platform_fee),workerNet:Number(payment.worker_net_amount)}});
 }catch(e){next(e)}});
 
 router.post('/failed',auth,authorize('USER'),async(req,res,next)=>{try{
