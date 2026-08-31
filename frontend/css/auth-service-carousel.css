@@ -1,0 +1,164 @@
+/* Login service-photo carousel + smaller interior SevaBot launcher. */
+.auth-visual-stage.auth-service-showcase{
+  width:min(760px,82%);
+  height:440px;
+  margin-top:150px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+.auth-photo-frame{
+  position:relative;
+  width:100%;
+  height:360px;
+  overflow:hidden;
+  border-radius:28px;
+  border:1px solid rgba(112,58,28,.24);
+  background:#9c4a1b;
+  box-shadow:0 28px 60px rgba(105,52,22,.22),0 7px 0 rgba(122,58,24,.08);
+}
+.auth-photo-slide{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  transform:translateX(34px) scale(1.025);
+  transition:opacity .62s ease,transform .72s cubic-bezier(.2,.8,.2,1);
+  pointer-events:none;
+}
+.auth-photo-slide.active{
+  opacity:1;
+  transform:translateX(0) scale(1);
+  z-index:2;
+}
+.auth-photo-slide img{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+}
+.auth-photo-shade{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,rgba(57,24,8,.77) 0%,rgba(88,38,12,.38) 43%,rgba(65,30,12,.08) 72%),linear-gradient(0deg,rgba(48,22,9,.28),transparent 55%);
+}
+.auth-photo-caption{
+  position:absolute;
+  left:34px;
+  bottom:31px;
+  z-index:3;
+  width:min(420px,68%);
+  color:#fff;
+  text-shadow:0 2px 10px rgba(48,20,6,.28);
+}
+.auth-photo-caption>span{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:7px 11px;
+  margin-bottom:10px;
+  border-radius:999px;
+  background:rgba(255,208,93,.94);
+  color:#4c2b13;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.5px;
+  text-shadow:none;
+}
+.auth-photo-caption h3{
+  margin:0 0 8px;
+  color:#fff;
+  font-size:clamp(25px,2.6vw,39px);
+  line-height:1.04;
+  letter-spacing:-1px;
+}
+.auth-photo-caption p{
+  margin:0;
+  max-width:390px;
+  color:rgba(255,255,255,.91);
+  font-size:14px;
+  line-height:1.55;
+}
+.auth-photo-top-chip,
+.auth-photo-count-chip{
+  position:absolute;
+  z-index:5;
+  border:1px solid rgba(255,255,255,.58);
+  background:rgba(255,248,241,.88);
+  color:#673717;
+  backdrop-filter:blur(12px);
+  box-shadow:0 12px 28px rgba(70,31,10,.16);
+}
+.auth-photo-top-chip{
+  right:20px;
+  top:18px;
+  padding:9px 12px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:900;
+}
+.auth-photo-count-chip{
+  right:20px;
+  bottom:18px;
+  min-width:94px;
+  padding:9px 13px;
+  border-radius:15px;
+  display:flex;
+  align-items:baseline;
+  gap:6px;
+}
+.auth-photo-count-chip b{font-size:23px;color:#b95417}.auth-photo-count-chip span{font-size:10px;font-weight:800;color:#7b4c2f}
+.auth-photo-dots{
+  margin-top:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+}
+.auth-photo-dots button{
+  width:9px;
+  height:9px;
+  padding:0;
+  border:0;
+  border-radius:999px;
+  background:rgba(115,55,22,.27);
+  box-shadow:none;
+  transition:width .25s ease,background .25s ease,transform .25s ease;
+}
+.auth-photo-dots button.active{
+  width:28px;
+  background:#8f431a;
+}
+.auth-photo-dots button:hover{transform:scale(1.08)}
+.auth-visual-panel>.auth-dots{display:none!important}
+
+/* Compact floating SevaBot button inside user/worker dashboards. */
+.chat>.btn:last-child{
+  width:46px!important;
+  height:46px!important;
+  min-width:46px!important;
+  min-height:46px!important;
+  padding:0!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  font-size:18px!important;
+  line-height:1!important;
+  box-shadow:0 5px #9a3412,0 10px 18px rgba(104,43,12,.20)!important;
+}
+.chat>.btn:last-child:active{transform:translateY(3px)!important;box-shadow:0 2px #9a3412,0 5px 9px rgba(104,43,12,.18)!important}
+
+@media(max-width:1150px){
+  .auth-visual-stage.auth-service-showcase{width:86%;height:410px;margin-top:150px}
+  .auth-photo-frame{height:330px}
+  .auth-photo-caption{left:25px;bottom:24px}
+}
+@media(max-width:900px){
+  .auth-service-showcase{display:none!important}
+}
+@media(max-width:650px){
+  .chat>.btn:last-child{width:42px!important;height:42px!important;min-width:42px!important;min-height:42px!important;font-size:16px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  .auth-photo-slide{transition:none}
+}
