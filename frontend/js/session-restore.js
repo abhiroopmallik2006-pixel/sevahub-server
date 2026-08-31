@@ -11,9 +11,7 @@
   function saveSession(){
     const s=safeState();
     if(!s?.user||!s?.role) return;
-    try{
-      sessionStorage.setItem(SESSION_KEY,JSON.stringify({role:s.role,user:s.user}));
-    }catch(e){}
+    try{sessionStorage.setItem(SESSION_KEY,JSON.stringify({role:s.role,user:s.user}))}catch(e){}
   }
 
   function clearSaved(){
@@ -106,7 +104,6 @@
     try{saved=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch(e){saved=null}
     if(!saved?.user||!saved?.role) return;
 
-    /* Live sessions also need the existing JWT. sessionStorage keeps it across refresh. */
     if(!isDemo&&!sessionStorage.getItem('sevahub_token')){
       clearSaved();
       return;
@@ -122,7 +119,10 @@
       s.user=saved.user;
       render();
       if(typeof initLiveChat==='function') initLiveChat();
-      Promise.resolve().then(()=>restoreRoute(route)).catch(e=>console.warn('Could not restore SevaHub page',e)).finally(()=>{restoring=false;saveSession()});
+      Promise.resolve()
+        .then(()=>restoreRoute(route))
+        .catch(e=>console.warn('Could not restore SevaHub page',e))
+        .finally(()=>{restoring=false;saveSession()});
     }catch(e){
       restoring=false;
       console.warn('Could not restore SevaHub session',e);
@@ -130,28 +130,17 @@
   }
 
   const app=document.getElementById('app');
-  if(app){
-    new MutationObserver(()=>saveSession()).observe(app,{childList:true,subtree:true});
-  }
+  if(app)new MutationObserver(()=>saveSession()).observe(app,{childList:true,subtree:true});
 
   document.addEventListener('click',e=>{
     const el=e.target.closest('[onclick]');
     if(el&&String(el.getAttribute('onclick')||'').includes('logout()')) clearSaved();
   },true);
 
-  window.addEventListener('beforeunload',()=>{
-    saveSession();
-    try{
-      if(history.state?.sevahub) saveRoute(history.state);
-    }catch(e){}
-  });
-
-  window.addEventListener('popstate',()=>{
-    setTimeout(()=>{
-      saveSession();
-      try{if(history.state?.sevahub) saveRoute(history.state)}catch(e){}
-    },80);
-  });
+  /* The route wrappers above already know the exact nested page. Do not replace
+     it with a more generic history state during reload. */
+  window.addEventListener('beforeunload',()=>saveSession());
+  window.addEventListener('popstate',()=>setTimeout(saveSession,80));
 
   restoreSession();
 })();
