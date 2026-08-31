@@ -1,4 +1,4 @@
-/* SevaHub interior dashboard: brown chrome + homepage-orange content panels. */
+/* SevaHub interior dashboard: brown chrome + homepage peach shell. */
 .dashboard{padding-top:24px}
 
 /* Brown greeting banner */
@@ -79,16 +79,16 @@
 .dashboard > .tabs .btn:hover,
 .dashboard > .tabs .btn.secondary:hover{background:#4c382f !important;color:#ffd0a3 !important}
 
-/* The large white interior area is now the homepage burnt-orange. */
+/* Homepage peach for the large interior content area. */
 .dashboard #userContent > .panel,
 .dashboard #workerContent > .panel,
 .dashboard #userContent > .card,
 .dashboard #workerContent > .card{
-  border:1px solid rgba(255,225,196,.35) !important;
+  border:1px solid rgba(117,74,44,.22) !important;
   border-radius:22px;
-  background:linear-gradient(155deg,#b95417 0%,#c96623 52%,#b94e14 100%) !important;
-  color:#fff8ef !important;
-  box-shadow:0 16px 38px rgba(126,54,15,.22) !important;
+  background:linear-gradient(145deg,#f9c18d 0%,#f4b57c 48%,#f7c092 100%) !important;
+  color:#573018 !important;
+  box-shadow:0 16px 38px rgba(109,58,25,.15) !important;
 }
 .dashboard #userContent > .panel > h2,
 .dashboard #workerContent > .panel > h2,
@@ -96,9 +96,9 @@
 .dashboard #workerContent > .card > h2,
 .booking-list-marker > h2,
 .worker-payment-receipts > h2,
-.booking-chat h2{color:#fff4e6 !important}
+.booking-chat h2{color:#713716 !important}
 
-/* Keep inner service/booking cards readable on top of the orange section. */
+/* Keep inner service/booking cards readable on top of peach. */
 .dashboard #userContent > .card .service-card,
 .dashboard #userContent > .card .worker-card,
 .dashboard #userContent > .card .card,
@@ -111,8 +111,8 @@
 .dashboard #userContent > .panel .offer,
 .dashboard #workerContent > .panel .card,
 .dashboard #workerContent > .panel .offer{
-  background:#fff8f0 !important;
-  border-color:#edcfb8 !important;
+  background:#fff8f1 !important;
+  border-color:rgba(117,74,44,.28) !important;
   color:#2e2925 !important;
 }
 .dashboard #userContent .service-card .muted,
@@ -122,13 +122,36 @@
 .dashboard #workerContent .worker-card .muted,
 .dashboard #workerContent .offer .muted{color:#776b62 !important}
 
-.booking-list-marker > .card.panel,#workerContent > .card.panel .offer{border-left:4px solid #ffb15f !important}
-.booking-chat{border-top:4px solid #ffd09c !important}
-.booking-chat .chat-body{background:#fff0e2 !important;border:1px solid #eebf9c !important;border-radius:14px;color:#2e2925 !important}
+.booking-list-marker > .card.panel,#workerContent > .card.panel .offer{border-left:4px solid #b95417 !important}
+.booking-chat{border-top:4px solid #b95417 !important}
+.booking-chat .chat-body{background:#fff0e2 !important;border:1px solid #d99f73 !important;border-radius:14px;color:#2e2925 !important}
 .dashboard #userContent > .form .field label,
-.dashboard #workerContent > .form .field label{color:#fff8ef !important}
+.dashboard #workerContent > .form .field label{color:#573018 !important}
 
-/* True dark mode: no white outer dashboard areas. */
+/* Make every remaining light dashboard surface use the SAME peach as the homepage visual side. */
+body:not(.dark):has(.app:not(.dark) .dashboard),
+body:not(.dark):has(.app:not(.dark) .dashboard) .app{
+  background:linear-gradient(145deg,#f9c18d 0%,#f4b57c 48%,#f7c092 100%) !important;
+  background-attachment:fixed !important;
+}
+body:not(.dark):has(.app:not(.dark) .dashboard)::before,
+body:not(.dark):has(.app:not(.dark) .dashboard)::after{opacity:0 !important}
+body:not(.dark):has(.app:not(.dark) .dashboard) .nav{
+  background:linear-gradient(145deg,#f9c18d 0%,#f4b57c 48%,#f7c092 100%) !important;
+  border-bottom:1px solid rgba(117,74,44,.24) !important;
+  box-shadow:0 8px 24px rgba(109,58,25,.12) !important;
+  backdrop-filter:none !important;
+}
+body:not(.dark):has(.app:not(.dark) .dashboard) .nav .brand{color:#713716 !important;text-shadow:none !important}
+body:not(.dark):has(.app:not(.dark) .dashboard) .nav .theme,
+body:not(.dark):has(.app:not(.dark) .dashboard) .nav .pill,
+body:not(.dark):has(.app:not(.dark) .dashboard) .nav .btn.secondary{
+  background:rgba(255,248,241,.58) !important;
+  border-color:rgba(117,74,44,.24) !important;
+  color:#573018 !important;
+}
+
+/* True dark mode: no white/cream outer dashboard areas. */
 body.dark,.app.dark{
   --bg:#050607;
   --surface:#0c1013;
@@ -138,7 +161,8 @@ body.dark,.app.dark{
   background:#050607 !important;
   color:#f5f3f0 !important;
 }
-body.dark::before,body.dark::after{opacity:.03 !important}
+body:has(.app.dark .dashboard){background:#050607 !important}
+body.dark::before,body.dark::after,body:has(.app.dark .dashboard)::before,body:has(.app.dark .dashboard)::after{opacity:.03 !important}
 .dark .nav,body.dark .nav{background:#0b0e10 !important;border-bottom-color:#24292d !important;box-shadow:0 8px 22px rgba(0,0,0,.45) !important}
 .dark .brand,body.dark .brand{color:#f0a65f !important;text-shadow:none !important}
 .dark .theme,body.dark .theme{background:#07090b !important;color:#fff !important;border-color:#2b3034 !important}
