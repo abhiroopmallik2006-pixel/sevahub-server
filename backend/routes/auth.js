@@ -2,6 +2,7 @@ const express=require('express');
 const bcrypt=require('bcryptjs');
 const jwt=require('jsonwebtoken');
 const pool=require('../config');
+const {auth}=require('../middleware/auth');
 const {sendOtpEmail}=require('../utils/mailer');
 const {generateOtp,hashOtp,otpExpiryDate,MAX_ATTEMPTS,RESEND_COOLDOWN_SECONDS}=require('../utils/otp');
 const router=express.Router();
@@ -115,18 +116,38 @@ router.post('/register',async(req,res,next)=>{
     await conn.commit();
     await pool.query("DELETE FROM email_otps WHERE email=? AND purpose='REGISTER'",[email]);
     const token=jwt.sign({id:userId,role,username},process.env.JWT_SECRET,{expiresIn:'7d'});
-    res.status(201).json({success:true,data:{user:{id:userId,fullName,username,email,role},token}});
+    res.status(201).json({success:true,data:{user:{id:userId,fullName,username,email,phone:phone||null,role},token}});
   }catch(e){await conn.rollback(); next(e)} finally{conn.release()}
+});
+
+router.get('/me',auth,async(req,res,next)=>{
+  try{
+    const [rows]=await pool.query(
+      'SELECT id,full_name,username,email,phone,role,email_verified FROM users WHERE id=?',
+      [req.user.id]
+    );
+    if(!rows.length) return res.status(404).json({success:false,message:'Account not found'});
+    const u=rows[0];
+    res.json({success:true,data:{
+      id:u.id,
+      fullName:u.full_name,
+      username:u.username,
+      email:u.email,
+      phone:u.phone,
+      role:u.role,
+      emailVerified:Boolean(u.email_verified)
+    }});
+  }catch(e){next(e)}
 });
 
 router.post('/login',async(req,res,next)=>{
   try{
     const {username,password}=req.body;
-    const [rows]=await pool.query('SELECT id,full_name,username,email,role,password_hash FROM users WHERE username=?',[username]);
+    const [rows]=await pool.query('SELECT id,full_name,username,email,phone,role,password_hash FROM users WHERE username=?',[username]);
     if(!rows.length || !(await bcrypt.compare(password,rows[0].password_hash))) return res.status(401).json({success:false,message:'Invalid username or password'});
     const u=rows[0];
     const token=jwt.sign({id:u.id,role:u.role,username:u.username},process.env.JWT_SECRET,{expiresIn:'7d'});
-    res.json({success:true,data:{user:{id:u.id,fullName:u.full_name,username:u.username,email:u.email,role:u.role},token}});
+    res.json({success:true,data:{user:{id:u.id,fullName:u.full_name,username:u.username,email:u.email,phone:u.phone,role:u.role},token}});
   }catch(e){next(e)}
 });
 
