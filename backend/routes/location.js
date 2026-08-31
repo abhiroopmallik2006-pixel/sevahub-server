@@ -4,7 +4,6 @@ const {auth,authorize}=require('../middleware/auth');
 const router=express.Router();
 
 const LIVE_MS=5*60*1000;
-const NEARBY_MS=15*60*1000;
 
 async function ensureLocationTable(){
   await pool.query(`CREATE TABLE IF NOT EXISTS user_locations (
@@ -102,7 +101,7 @@ router.get('/nearby-workers',auth,authorize('USER'),async(req,res,next)=>{try{
     FROM worker_services ws
     JOIN workers w ON w.id=ws.worker_id
     JOIN user_locations l ON l.user_id=w.user_id
-    WHERE ws.service_id=? AND l.sharing_enabled=TRUE AND l.updated_at>=DATE_SUB(NOW(),INTERVAL 15 MINUTE)`,[serviceId]);
+    WHERE ws.service_id=? AND l.sharing_enabled=TRUE AND l.updated_at>=DATE_SUB(NOW(),INTERVAL 5 MINUTE)`,[serviceId]);
 
   const data=rows.map(r=>{
     const d=distanceKm(lat,lng,Number(r.latitude),Number(r.longitude));
