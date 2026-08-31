@@ -153,7 +153,31 @@
     }catch(e){}
   }
 
+  function wrapLocationPrivacyCopy(){
+    try{
+      if(typeof openLocationSettings!=='function'||openLocationSettings.__bookingPrivacyWrapped)return;
+      const original=openLocationSettings;
+      const wrapped=async function(){
+        const result=await original.apply(this,arguments);
+        const subtitle=document.getElementById('locationSubtitle');
+        const note=document.querySelector('#locationModalBody .location-privacy-note');
+        if(state?.role==='USER'){
+          if(subtitle)subtitle.textContent='When enabled, SevaHub can calculate nearby worker distance. After you book a worker, that assigned worker can see your shared GPS, name and phone while the request is pending, bargaining or active.';
+          if(note)note.innerHTML='<b>Privacy:</b> SevaHub stores only your latest location, not a route/history. Nearby discovery exposes distance only. Your precise GPS is shown only to the worker you booked while location sharing is enabled.';
+        }else if(state?.role==='WORKER'){
+          if(subtitle)subtitle.textContent='When enabled, nearby users can see your distance. For assigned bookings, you can view the customer’s shared GPS and contact details; your exact GPS is shared with the customer only after the booking is accepted or in progress.';
+          if(note)note.innerHTML='<b>Privacy:</b> Customer contact and precise GPS are restricted to the worker assigned to that booking. Your own precise GPS is shared with the customer only during accepted/in-progress bookings.';
+        }
+        return result;
+      };
+      wrapped.__bookingPrivacyWrapped=true;
+      try{openLocationSettings=wrapped}catch(e){}
+      window.openLocationSettings=wrapped;
+    }catch(e){}
+  }
+
   wrapWorkerBookings();
+  wrapLocationPrivacyCopy();
   setTimeout(addCustomerDetailButtons,0);
 
   const style=document.createElement('style');
