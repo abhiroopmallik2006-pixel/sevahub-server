@@ -1,4 +1,4 @@
-/* Razorpay checkout + payment receipts for users and workers. */
+/* Razorpay checkout + 2% platform-fee breakdowns for users and workers. */
 (function(){
   if(typeof userBookings!=='function') return;
 
@@ -6,10 +6,21 @@
   const previousUserBookings=userBookings;
   const previousWorkerBookings=typeof workerBookings==='function'?workerBookings:null;
 
+  function feeFor(amount){return Number((Math.max(0,Number(amount)||0)*PLATFORM_FEE_PERCENT/100).toFixed(2))}
+  function paymentMethodOf(b){return String(b.payment_method??b.paymentMethod??b.payment??'Cash')}
+  function bookingAmount(b){return Number(b.final_price??b.finalPrice??b.original_price??b.originalPrice??0)}
+
   function findUserBookingCard(id){
     return [...document.querySelectorAll('.booking-list-marker .card.panel')].find(card=>{
       const h3=card.querySelector('h3');
       return h3 && h3.textContent.trim().startsWith(`Booking #${id}`);
+    });
+  }
+
+  function findWorkerBookingCard(id){
+    return [...document.querySelectorAll('#workerContent .offer')].find(card=>{
+      const b=card.querySelector('b');
+      return b && b.textContent.trim().startsWith(`#${id} ·`);
     });
   }
 
@@ -24,10 +35,6 @@
     try{return (await api('/payments/worker')).data||[]}
     catch(e){console.warn('Worker payments unavailable',e);return []}
   }
-
-  function paymentMethodOf(b){return String(b.payment_method??b.paymentMethod??b.payment??'Cash')}
-  function bookingAmount(b){return Number(b.final_price??b.finalPrice??b.original_price??b.originalPrice??0)}
-  function feeFor(amount){return Number((Number(amount||0)*PLATFORM_FEE_PERCENT/100).toFixed(2))}
 
   function receiptHtml(payment,viewer){
     const amount=Number(payment.amount||0);
@@ -54,6 +61,25 @@
       </div>`;
   }
 
+  function cashBreakdownHtml(b,viewer){
+    const amount=bookingAmount(b);
+    const fee=feeFor(amount);
+    const workerNet=Number(Math.max(0,amount-fee).toFixed(2));
+    return `
+      <div class="cash-fee-breakdown top-space">
+        <div class="split">
+          <div><b>💵 Cash payment</b><p class="muted">SevaHub platform fee applies to cash bookings too.</p></div>
+          <span class="pill">CASH</span>
+        </div>
+        <div class="offer">
+          <div class="split"><span>Service amount</span><b>${money(amount)}</b></div>
+          <div class="split"><span>SevaHub platform fee (${PLATFORM_FEE_PERCENT}%)</span><b>− ${money(fee)}</b></div>
+          <div class="split"><span>${viewer==='WORKER'?'Your net amount':'Worker net amount'}</span><b>${money(workerNet)}</b></div>
+        </div>
+        <p class="muted">Cash is paid directly between customer and worker; this shows the SevaHub fee breakdown for the booking.</p>
+      </div>`;
+  }
+
   async function decoratePayments(){
     if(isDemo || state.role!=='USER' || !state.user) return;
     let bookings=[];
@@ -61,12 +87,11 @@
     const payments=await loadMyPayments();
 
     bookings.forEach(b=>{
-      const method=paymentMethodOf(b).toLowerCase();
-      if(method==='cash') return;
       if(!['ACCEPTED','IN_PROGRESS','COMPLETED'].includes(String(b.status))) return;
       const card=findUserBookingCard(b.id);
       if(!card || card.querySelector('.payment-action-box')) return;
 
+      const method=paymentMethodOf(b).toLowerCase();
       const payment=payments.find(p=>Number(p.booking_id)===Number(b.id));
       const amount=bookingAmount(b);
       const fee=feeFor(amount);
@@ -74,7 +99,9 @@
       const box=document.createElement('div');
       box.className='offer payment-action-box top-space';
 
-      if(payment?.status==='PAID'){
+      if(method==='cash'){
+        box.innerHTML=cashBreakdownHtml(b,'USER');
+      }else if(payment?.status==='PAID'){
         box.innerHTML=receiptHtml(payment,'USER');
       }else{
         box.innerHTML=`
@@ -92,6 +119,38 @@
     });
   }
 
+  async function decorateWorkerFeeBreakdowns(){
+    if(isDemo || state.role!=='WORKER' || !state.user) return;
+    let bookings=[];
+    try{bookings=(await api('/bookings')).data||[]}catch(e){return}
+
+    bookings.forEach(b=>{
+      if(!['ACCEPTED','IN_PROGRESS','COMPLETED'].includes(String(b.status))) return;
+      const card=findWorkerBookingCard(b.id);
+      if(!card || card.querySelector('.worker-fee-breakdown')) return;
+
+      const amount=bookingAmount(b);
+      const fee=feeFor(amount);
+      const workerNet=Number(Math.max(0,amount-fee).toFixed(2));
+      const method=paymentMethodOf(b);
+      const box=document.createElement('div');
+      box.className='worker-fee-breakdown top-space';
+
+      if(method.toLowerCase()==='cash'){
+        box.innerHTML=cashBreakdownHtml(b,'WORKER');
+      }else{
+        box.innerHTML=`
+          <div class="offer">
+            <div class="split"><span>Payment method</span><b>${esc(method)}</b></div>
+            <div class="split"><span>Service amount</span><b>${money(amount)}</b></div>
+            <div class="split"><span>SevaHub platform fee (${PLATFORM_FEE_PERCENT}%)</span><b>− ${money(fee)}</b></div>
+            <div class="split"><span>Your net amount</span><b>${money(workerNet)}</b></div>
+          </div>`;
+      }
+      card.appendChild(box);
+    });
+  }
+
   async function decorateWorkerReceipts(){
     if(isDemo || state.role!=='WORKER' || !state.user) return;
     const host=document.getElementById('workerContent');
@@ -100,7 +159,7 @@
     if(!payments.length) return;
     const section=document.createElement('div');
     section.className='card panel worker-payment-receipts top-space';
-    section.innerHTML=`<h2>💳 Payment receipts</h2><p class="muted">SevaHub deducts a ${PLATFORM_FEE_PERCENT}% platform fee from each online payment. Every receipt shows the fee and your net amount.</p>${payments.map(p=>receiptHtml(p,'WORKER')).join('')}`;
+    section.innerHTML=`<h2>💳 Online payment receipts</h2><p class="muted">SevaHub deducts a ${PLATFORM_FEE_PERCENT}% platform fee from each online payment.</p>${payments.map(p=>receiptHtml(p,'WORKER')).join('')}`;
     host.appendChild(section);
   }
 
@@ -148,7 +207,10 @@
   if(previousWorkerBookings){
     workerBookings=function(){
       const result=previousWorkerBookings();
-      Promise.resolve(result).then(()=>setTimeout(decorateWorkerReceipts,150));
+      Promise.resolve(result).then(()=>setTimeout(async()=>{
+        await decorateWorkerFeeBreakdowns();
+        await decorateWorkerReceipts();
+      },200));
       return result;
     };
   }
