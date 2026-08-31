@@ -1,15 +1,16 @@
-/* Add the SevaHub Android launcher/settings mark beside Popular services in narrow app/WebView layouts. */
+/* Add the settings gear icon beside Popular services in narrow app/WebView layouts. */
 (function(){
   const originalUserServices=typeof userServices==='function'?userServices:null;
 
-  function appMark(){
+  function settingsMark(){
     return `
-      <span class="popular-services-app-logo" aria-hidden="true">
-        <svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg" role="img">
-          <rect width="108" height="108" rx="22" fill="#FF8A1F"/>
-          <rect x="22" y="22" width="64" height="64" fill="#080D12"/>
-          <path fill="#FFFFFF" d="M54 29 L77 43 L71 52 L58 44 L58 75 L47 75 L47 44 L34 52 L28 43 Z"/>
-          <rect x="47" y="61" width="11" height="14" fill="#FF8A1F"/>
+      <span class="popular-services-settings-icon" aria-hidden="true">
+        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img">
+          <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="24" cy="24" r="6.5"/>
+            <path d="M24 5.5v5M24 37.5v5M5.5 24h5M37.5 24h5M10.9 10.9l3.6 3.6M33.5 33.5l3.6 3.6M37.1 10.9l-3.6 3.6M14.5 33.5l-3.6 3.6"/>
+            <circle cx="24" cy="24" r="14.2"/>
+          </g>
         </svg>
       </span>`;
   }
@@ -19,9 +20,9 @@
     if(!box)return;
     const headings=[...box.querySelectorAll('h2')];
     const heading=headings.find(h=>String(h.textContent||'').trim().toLowerCase()==='popular services');
-    if(!heading||heading.querySelector('.popular-services-app-logo'))return;
+    if(!heading||heading.querySelector('.popular-services-settings-icon'))return;
     heading.classList.add('popular-services-heading');
-    heading.insertAdjacentHTML('afterbegin',appMark());
+    heading.insertAdjacentHTML('beforeend',settingsMark());
   }
 
   if(originalUserServices){
