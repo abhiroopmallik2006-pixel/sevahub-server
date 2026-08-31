@@ -1,10 +1,15 @@
 /* Browser + Android WebView history support for SevaHub's single-page dashboard. */
 (function(){
   let restoring=false;
+  let guardInstalled=false;
   const ROUTE_KEY='sevahub_ui_route_v1';
 
   function role(){
     try{return state?.role||null}catch(e){return null}
+  }
+
+  function loggedIn(){
+    try{return Boolean(state?.user&&state?.role)}catch(e){return false}
   }
 
   function callIfExists(name,...args){
@@ -24,92 +29,97 @@
     return {view:'home'};
   }
 
-  function ensureCurrentState(){
-    if(history.state?.sevahub) return;
-    const base=baseViewFromDom();
-    history.replaceState({sevahub:true,...base,root:true},'',location.href);
+  function routeUrl(view,data={}){
+    const bits=[`view=${encodeURIComponent(view||'home')}`];
+    if(data.bookingId) bits.push(`booking=${encodeURIComponent(data.bookingId)}`);
+    if(data.serviceId) bits.push(`service=${encodeURIComponent(data.serviceId)}`);
+    if(data.role) bits.push(`role=${encodeURIComponent(data.role)}`);
+    return `${location.pathname}${location.search}#sevahub:${bits.join('&')}`;
   }
 
-  function pushView(view,data={}){
-    if(restoring) return;
-    ensureCurrentState();
-    const current=history.state||{};
-    const same=current.sevahub&&current.view===view&&
-      Number(current.bookingId||0)===Number(data.bookingId||0)&&
-      Number(current.serviceId||0)===Number(data.serviceId||0)&&
-      String(current.role||'')===String(data.role||'');
-    if(same) return;
-    history.pushState({sevahub:true,root:false,view,...data},'',location.href);
+  function saveRoute(route){
+    if(!route||route.guard) return;
+    try{sessionStorage.setItem(ROUTE_KEY,JSON.stringify(route))}catch(e){}
   }
 
   function readSavedRoute(){
     try{return JSON.parse(sessionStorage.getItem(ROUTE_KEY)||'null')}catch(e){return null}
   }
 
-  function replaceAsRoot(view,data={}){
-    try{history.replaceState({sevahub:true,root:true,view,...data},'',location.href)}catch(e){}
+  /*
+    Android's WebView exits when it thinks there is no browser history.
+    Keep a hidden guard entry behind the dashboard so Android Back/swipe is
+    handed to WebView history instead of immediately closing the Activity.
+  */
+  function ensureAndroidGuard(){
+    if(!loggedIn()||guardInstalled) return;
+    guardInstalled=true;
+
+    const base=baseViewFromDom();
+    try{
+      history.replaceState({sevahub:true,guard:true,view:'guard'},'',`${location.pathname}${location.search}#sevahub:guard`);
+      history.pushState({sevahub:true,root:true,...base},'',routeUrl(base.view,base));
+      saveRoute({sevahub:true,root:true,...base});
+    }catch(e){
+      console.warn('Could not install SevaHub history guard',e);
+    }
   }
 
-  /*
-    Called by the native Android wrapper before it considers closing the Activity.
-    Return true when SevaHub handled Back internally.
-  */
+  function ensureCurrentState(){
+    ensureAndroidGuard();
+    if(history.state?.sevahub&&!history.state.guard) return;
+    const base=baseViewFromDom();
+    try{
+      history.replaceState({sevahub:true,root:true,...base},'',routeUrl(base.view,base));
+      saveRoute({sevahub:true,root:true,...base});
+    }catch(e){}
+  }
+
+  function pushView(view,data={}){
+    if(restoring) return;
+    ensureCurrentState();
+    const current=history.state||{};
+    const same=current.sevahub&&!current.guard&&current.view===view&&
+      Number(current.bookingId||0)===Number(data.bookingId||0)&&
+      Number(current.serviceId||0)===Number(data.serviceId||0)&&
+      String(current.role||'')===String(data.role||'');
+    if(same) return;
+    const next={sevahub:true,root:false,view,...data};
+    history.pushState(next,'',routeUrl(view,data));
+    saveRoute(next);
+  }
+
+  function replaceAsRoot(view,data={}){
+    const next={sevahub:true,root:true,view,...data};
+    try{
+      history.replaceState(next,'',routeUrl(view,data));
+      saveRoute(next);
+    }catch(e){}
+  }
+
+  function restoreRoot(){
+    const currentRole=role();
+    restoring=true;
+    try{
+      if(currentRole==='WORKER') callIfExists('workerHome');
+      else callIfExists('userServices');
+      const rootView=currentRole==='WORKER'?'worker-home':'user-services';
+      history.pushState({sevahub:true,root:true,view:rootView},'',routeUrl(rootView));
+      saveRoute({sevahub:true,root:true,view:rootView});
+    }finally{
+      restoring=false;
+    }
+  }
+
+  /* Optional hook for Android wrappers that explicitly ask JavaScript first. */
   window.sevahubNativeBack=function(){
     try{
-      const s=history.state;
-      if(s?.sevahub && s.root!==true){
+      ensureAndroidGuard();
+      if(history.state?.sevahub){
         history.back();
         return true;
       }
-
-      /* Fallback for a restored/refreshed page whose browser stack is unavailable. */
-      const route=readSavedRoute()||baseViewFromDom();
-      const currentRole=role();
-
-      if(route?.view==='chat'){
-        try{activeChatBookingId=null}catch(e){}
-        if((route.role||currentRole)==='WORKER'){
-          callIfExists('workerBookings');
-          replaceAsRoot('worker-bookings');
-        }else{
-          callIfExists('userBookings');
-          replaceAsRoot('user-bookings');
-        }
-        return true;
-      }
-
-      if(route?.view==='user-booking-form' && Number(route.serviceId)>0){
-        callIfExists('showWorkers',Number(route.serviceId));
-        replaceAsRoot('user-workers',{serviceId:Number(route.serviceId)});
-        return true;
-      }
-
-      if(route?.view==='user-workers'){
-        callIfExists('userServices');
-        replaceAsRoot('user-services');
-        return true;
-      }
-
-      if(['user-bargain','user-bargain-live'].includes(route?.view)){
-        callIfExists('userBookings');
-        replaceAsRoot('user-bookings');
-        return true;
-      }
-
-      if(['user-bookings','user-ai','user-spend','user-rewards','user-notifications'].includes(route?.view)){
-        callIfExists('userServices');
-        replaceAsRoot('user-services');
-        return true;
-      }
-
-      if(['worker-bookings','worker-bargains','worker-earnings','worker-profile'].includes(route?.view)){
-        callIfExists('workerHome');
-        replaceAsRoot('worker-home');
-        return true;
-      }
-    }catch(e){
-      console.warn('SevaHub native Back fallback failed',e);
-    }
+    }catch(e){console.warn('SevaHub native Back failed',e)}
     return false;
   };
 
@@ -119,8 +129,10 @@
     const code=String(target.getAttribute('onclick')||'').trim();
     const text=String(target.textContent||'').trim().toLowerCase();
 
+    ensureAndroidGuard();
+
     /* Visible in-app Back buttons should traverse the same history stack. */
-    if((text.startsWith('←')||text==='back'||text.includes('← back')) && history.state?.sevahub && history.state.root!==true){
+    if((text.startsWith('←')||text==='back'||text.includes('← back')) && history.state?.sevahub && !history.state.guard){
       if(code.includes('userServices()')||code.includes('userBookings()')||code.includes('workerBookings()')||code.includes('workerHome()')||code.includes('showWorkers(')){
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -130,14 +142,11 @@
       }
     }
 
-    /* The Back button inside booking chat should behave like a real browser Back. */
     if(target.closest('.booking-chat') && (code.includes('userBookings()')||code.includes('workerBookings()'))){
       e.preventDefault();
       e.stopImmediatePropagation();
       try{activeChatBookingId=null}catch(err){}
-      if(history.state?.sevahub && history.state.root!==true) history.back();
-      else if(role()==='WORKER') callIfExists('workerBookings');
-      else callIfExists('userBookings');
+      history.back();
       return;
     }
 
@@ -150,7 +159,6 @@
 
     const workers=code.match(/^showWorkers\((\d+)\)/);
     if(workers) return pushView('user-workers',{serviceId:Number(workers[1])});
-    if(code.startsWith('openBooking(')) return pushView('user-booking-form');
 
     if(code.startsWith('workerHome()')) return pushView('worker-home');
     if(code.startsWith('workerBookings()')) return pushView('worker-bookings');
@@ -167,6 +175,13 @@
 
   window.addEventListener('popstate',async function(e){
     const s=e.state;
+
+    /* Never let Android's first Back/swipe leave the app from dashboard root. */
+    if(s?.sevahub&&s.guard){
+      if(loggedIn()) restoreRoot();
+      return;
+    }
+
     if(!s?.sevahub) return;
     try{
       if(!state?.user) return;
@@ -193,10 +208,21 @@
           if(role()==='WORKER') await callIfExists('workerHome');
           else await callIfExists('userServices');
       }
+      saveRoute(s);
     }catch(err){
       console.warn('Could not restore previous SevaHub view',err);
     }finally{
       restoring=false;
     }
   });
+
+  /* Login/session restore renders asynchronously; install history as soon as dashboard exists. */
+  const app=document.getElementById('app');
+  if(app){
+    const observer=new MutationObserver(()=>{
+      if(loggedIn()) ensureAndroidGuard();
+    });
+    observer.observe(app,{childList:true,subtree:true});
+  }
+  setTimeout(()=>{if(loggedIn()) ensureAndroidGuard()},0);
 })();
