@@ -40,7 +40,7 @@ async function activeCounterparts(user){
   }
   const [rows]=await pool.query(`SELECT b.id booking_id,w.user_id counterpart_user_id
     FROM bookings b JOIN workers w ON w.id=b.worker_id
-    WHERE b.user_id=? AND b.status IN ('ACCEPTED','IN_PROGRESS')`,[user.id]);
+    WHERE b.user_id=? AND b.status IN ('PENDING','ACCEPTED','IN_PROGRESS')`,[user.id]);
   return rows;
 }
 
@@ -123,8 +123,8 @@ router.get('/booking/:id',auth,async(req,res,next)=>{try{
   const bookingId=Number(req.params.id);
   if(!Number.isInteger(bookingId)||bookingId<1)return res.status(400).json({success:false,message:'Invalid booking'});
 
-  const [rows]=await pool.query(`SELECT b.id,b.status,b.user_id,w.user_id worker_user_id,
-    cu.full_name customer_name,wu.full_name worker_name
+  const [rows]=await pool.query(`SELECT b.id,b.status,b.user_id,b.address,w.user_id worker_user_id,
+    cu.full_name customer_name,cu.phone customer_phone,wu.full_name worker_name
     FROM bookings b
     JOIN workers w ON w.id=b.worker_id
     JOIN users cu ON cu.id=b.user_id
@@ -132,9 +132,15 @@ router.get('/booking/:id',auth,async(req,res,next)=>{try{
     WHERE b.id=?`,[bookingId]);
   if(!rows.length)return res.status(404).json({success:false,message:'Booking not found'});
   const b=rows[0];
-  const allowed=Number(req.user.id)===Number(b.user_id)||Number(req.user.id)===Number(b.worker_user_id);
-  if(!allowed)return res.status(403).json({success:false,message:'You cannot view this booking location'});
-  if(!['ACCEPTED','IN_PROGRESS'].includes(b.status))return res.status(400).json({success:false,message:'Live tracking is available only for accepted or in-progress bookings'});
+  const isCustomer=Number(req.user.id)===Number(b.user_id);
+  const isWorker=Number(req.user.id)===Number(b.worker_user_id);
+  if(!isCustomer&&!isWorker)return res.status(403).json({success:false,message:'You cannot view this booking location'});
+
+  const active=['ACCEPTED','IN_PROGRESS'].includes(b.status);
+  const pendingForAssignedWorker=b.status==='PENDING'&&isWorker;
+  if(!active&&!pendingForAssignedWorker){
+    return res.status(400).json({success:false,message:'Customer details are available to the assigned worker while the request is pending or active. Worker live tracking starts after acceptance.'});
+  }
 
   const [locs]=await pool.query(`SELECT user_id,latitude,longitude,accuracy_m,sharing_enabled,updated_at
     FROM user_locations WHERE user_id IN (?,?)`,[b.user_id,b.worker_user_id]);
@@ -145,12 +151,23 @@ router.get('/booking/:id',auth,async(req,res,next)=>{try{
     const age=Date.now()-new Date(l.updated_at).getTime();
     return {name,sharing:true,latitude:Number(l.latitude),longitude:Number(l.longitude),accuracy:Number(l.accuracy_m||0),updatedAt:l.updated_at,isLive:age<=LIVE_MS};
   };
-  const customer=shape(b.user_id,b.customer_name);
-  const worker=shape(b.worker_user_id,b.worker_name);
-  let distance=null;
-  if(customer.sharing&&worker.sharing)distance=Number(distanceKm(customer.latitude,customer.longitude,worker.latitude,worker.longitude).toFixed(2));
 
-  res.json({success:true,data:{bookingId,status:b.status,customer,worker,distanceKm:distance}});
+  const customer={...shape(b.user_id,b.customer_name),phone:isWorker?(b.customer_phone||null):null};
+  const worker=active?shape(b.worker_user_id,b.worker_name):{name:b.worker_name,sharing:false,hiddenUntilAccepted:true};
+  let distance=null;
+  if(active&&customer.sharing&&worker.sharing){
+    distance=Number(distanceKm(customer.latitude,customer.longitude,worker.latitude,worker.longitude).toFixed(2));
+  }
+
+  res.json({success:true,data:{
+    bookingId,
+    status:b.status,
+    mode:pendingForAssignedWorker?'CUSTOMER_REQUEST':'ACTIVE',
+    bookingAddress:isWorker?(b.address||null):null,
+    customer,
+    worker,
+    distanceKm:distance
+  }});
 }catch(e){next(e)}});
 
 module.exports=router;
