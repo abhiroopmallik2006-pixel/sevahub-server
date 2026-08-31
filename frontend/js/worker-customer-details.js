@@ -2,6 +2,7 @@
 (function(){
   let refreshTimer=null;
   let activeBookingId=null;
+  const REQUEST_STATUSES=['PENDING','BARGAINING','COUNTER_OFFER_PENDING_USER'];
 
   function escapeHtml(v=''){
     try{return typeof esc==='function'?esc(v):String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}catch(e){return String(v)}
@@ -85,8 +86,9 @@
       modal.querySelector('#workerCustomerSubtitle').textContent=`Booking #${data.bookingId} · ${data.status}`;
       const address=data.bookingAddress?escapeHtml(data.bookingAddress):'';
       const addressMap=data.bookingAddress?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.bookingAddress)}`:'';
+      const requestState=REQUEST_STATUSES.includes(data.status);
       body.innerHTML=`
-        <div class="worker-customer-status"><span class="pill">${escapeHtml(data.status)}</span><b>${data.status==='PENDING'?'New booking request':'Assigned customer'}</b></div>
+        <div class="worker-customer-status"><span class="pill">${escapeHtml(data.status)}</span><b>${requestState?'Booking customer':'Assigned customer'}</b></div>
         ${customerLocationCard(data.customer)}
         <div class="worker-booking-address">
           <span class="muted">Service address</span>
@@ -122,7 +124,7 @@
     if(!container)return;
     try{
       const rows=(await api('/bookings')).data||[];
-      rows.filter(b=>['PENDING','ACCEPTED','IN_PROGRESS'].includes(b.status)).forEach(b=>{
+      rows.filter(b=>[...REQUEST_STATUSES,'ACCEPTED','IN_PROGRESS'].includes(b.status)).forEach(b=>{
         const card=findBookingCard(container,b.id);
         if(!card)return;
         card.querySelector('.live-location-btn')?.remove();
@@ -131,7 +133,7 @@
         const btn=document.createElement('button');
         btn.type='button';
         btn.className='btn secondary small worker-customer-details-btn';
-        btn.textContent=b.status==='PENDING'?'👤 Customer details':'📍 Customer details & location';
+        btn.textContent=REQUEST_STATUSES.includes(b.status)?'👤 Customer details':'📍 Customer details & location';
         btn.onclick=()=>openWorkerCustomerDetails(Number(b.id));
         actions.appendChild(btn);
       });
