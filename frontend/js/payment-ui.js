@@ -2,6 +2,7 @@
 (function(){
   if(typeof userBookings!=='function') return;
 
+  const PLATFORM_FEE_PERCENT=2;
   const previousUserBookings=userBookings;
   const previousWorkerBookings=typeof workerBookings==='function'?workerBookings:null;
 
@@ -26,10 +27,12 @@
 
   function paymentMethodOf(b){return String(b.payment_method??b.paymentMethod??b.payment??'Cash')}
   function bookingAmount(b){return Number(b.final_price??b.finalPrice??b.original_price??b.originalPrice??0)}
+  function feeFor(amount){return Number((Number(amount||0)*PLATFORM_FEE_PERCENT/100).toFixed(2))}
 
   function receiptHtml(payment,viewer){
     const amount=Number(payment.amount||0);
-    const fee=Number(payment.platform_fee??5);
+    const fee=Number(payment.platform_fee??feeFor(amount));
+    const feePercent=Number(payment.platform_fee_percent??(amount>0?(fee/amount*100):PLATFORM_FEE_PERCENT));
     const workerNet=Number(payment.worker_net_amount??Math.max(0,amount-fee));
     const paidAt=payment.paid_at?new Date(payment.paid_at).toLocaleString():'';
     const otherParty=viewer==='WORKER'?payment.customer_name:payment.worker_name;
@@ -43,7 +46,7 @@
         ${otherParty?`<p class="muted">${otherLabel}: ${esc(otherParty)}</p>`:''}
         <div class="offer">
           <div class="split"><span>Customer paid</span><b>${money(amount)}</b></div>
-          <div class="split"><span>SevaHub platform fee</span><b>− ${money(fee)}</b></div>
+          <div class="split"><span>SevaHub platform fee (${feePercent}%)</span><b>− ${money(fee)}</b></div>
           <div class="split"><span>Worker net amount</span><b>${money(workerNet)}</b></div>
         </div>
         ${payment.razorpay_payment_id?`<p class="muted">Payment ID: ${esc(payment.razorpay_payment_id)}</p>`:''}
@@ -66,8 +69,8 @@
 
       const payment=payments.find(p=>Number(p.booking_id)===Number(b.id));
       const amount=bookingAmount(b);
-      const fee=5;
-      const workerNet=Math.max(0,amount-fee);
+      const fee=feeFor(amount);
+      const workerNet=Number(Math.max(0,amount-fee).toFixed(2));
       const box=document.createElement('div');
       box.className='offer payment-action-box top-space';
 
@@ -79,7 +82,7 @@
             <div>
               <b>💳 Online payment</b>
               <p class="muted">${esc(paymentMethodOf(b))} · Customer pays ${money(amount)}</p>
-              <p class="muted">Platform fee ${money(fee)} is deducted from the worker settlement · Worker receives ${money(workerNet)}</p>
+              <p class="muted">SevaHub platform fee ${PLATFORM_FEE_PERCENT}% = ${money(fee)} · Worker receives ${money(workerNet)}</p>
               ${payment?.status==='FAILED'?'<p class="muted">Previous attempt was not completed. You can try again.</p>':''}
             </div>
             <button class="btn small" type="button" onclick="payBookingWithRazorpay(${Number(b.id)})">Pay ${money(amount)}</button>
@@ -97,7 +100,7 @@
     if(!payments.length) return;
     const section=document.createElement('div');
     section.className='card panel worker-payment-receipts top-space';
-    section.innerHTML=`<h2>💳 Payment receipts</h2><p class="muted">₹5 SevaHub platform fee is deducted from each online payment.</p>${payments.map(p=>receiptHtml(p,'WORKER')).join('')}`;
+    section.innerHTML=`<h2>💳 Payment receipts</h2><p class="muted">SevaHub deducts a ${PLATFORM_FEE_PERCENT}% platform fee from each online payment. Every receipt shows the fee and your net amount.</p>${payments.map(p=>receiptHtml(p,'WORKER')).join('')}`;
     host.appendChild(section);
   }
 
@@ -105,15 +108,17 @@
     if(typeof Razorpay==='undefined') return toast('Payment checkout could not load. Check internet and refresh.');
     try{
       const order=(await api('/payments/order',{method:'POST',body:JSON.stringify({bookingId})})).data;
+      const feePercent=Number(order.platformFeePercent??PLATFORM_FEE_PERCENT);
+      const fee=Number(order.platformFee??0);
       const options={
         key:order.keyId,
         amount:order.amount,
         currency:order.currency||'INR',
         name:'SevaHub',
-        description:`Booking #${bookingId} · Platform fee ₹${Number(order.platformFee??5)}`,
+        description:`Booking #${bookingId} · Platform fee ${feePercent}% (${money(fee)})`,
         order_id:order.orderId,
         prefill:{name:order.name||state.user.fullName||'',email:order.email||state.user.email||'',contact:order.contact||''},
-        notes:{booking_id:String(bookingId),platform_fee:String(order.platformFee??5)},
+        notes:{booking_id:String(bookingId),platform_fee_percent:String(feePercent),platform_fee:String(fee)},
         theme:{color:'#f97316'},
         handler:async function(response){
           try{
