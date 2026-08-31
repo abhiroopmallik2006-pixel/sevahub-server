@@ -1,23 +1,24 @@
-/* SevaHub interior dashboard: burnt-orange/peach light mode + true black dark mode. */
+/* SevaHub interior dashboard: homepage burnt-orange/peach light mode + true black dark mode. */
 
 .dashboard{padding-top:24px}
 
-/* Top greeting: intentionally dark even in light mode to match the reference. */
+/* Top greeting uses the exact burnt-orange family from the public homepage. */
 .dashboard > .split:first-child{
   margin-bottom:20px;
   padding:28px 30px;
-  border:1px solid #5b4035 !important;
+  border:1px solid rgba(185,84,23,.35) !important;
   border-radius:24px;
-  background:linear-gradient(135deg,#382b26,#42322b) !important;
-  box-shadow:0 16px 36px rgba(77,38,20,.18) !important;
+  background:linear-gradient(155deg,#b95417 0%,#c96623 52%,#b94e14 100%) !important;
+  box-shadow:0 16px 36px rgba(126,54,15,.22) !important;
 }
 .dashboard > .split:first-child h1{
   margin:0 0 8px;
-  color:#ffb56f !important;
+  color:#fff !important;
   letter-spacing:-.8px;
   font-size:clamp(30px,3.2vw,43px);
+  text-shadow:0 2px 8px rgba(92,35,8,.18);
 }
-.dashboard > .split:first-child p{margin:0;color:#c9c5c1 !important;font-size:16px}
+.dashboard > .split:first-child p{margin:0;color:rgba(255,255,255,.86) !important;font-size:16px}
 
 /* Four coloured summary cards in one row. */
 .dashboard .stats{
@@ -44,7 +45,7 @@
 .dashboard .stats .stat .muted{color:rgba(255,255,255,.9) !important;font-weight:800;font-size:14px}
 .dashboard .stats .stat b{margin-top:13px;color:#fff !important;text-shadow:0 2px 8px rgba(0,0,0,.18) !important;font-size:34px}
 
-/* Dark navigation bar in light mode too, like the reference screenshot. */
+/* Main navigation strip now uses the same homepage orange instead of brown. */
 .dashboard > .tabs{
   display:flex;
   align-items:center;
@@ -53,10 +54,10 @@
   margin:0 0 30px;
   padding:8px 10px;
   min-height:60px;
-  border:1px solid #60483d !important;
+  border:1px solid rgba(185,84,23,.35) !important;
   border-radius:22px;
-  background:#382b26 !important;
-  box-shadow:0 12px 30px rgba(60,35,24,.18) !important;
+  background:linear-gradient(155deg,#b95417 0%,#c96623 52%,#b94e14 100%) !important;
+  box-shadow:0 12px 30px rgba(126,54,15,.20) !important;
   overflow-x:auto !important;
   overflow-y:hidden !important;
   scrollbar-width:none;
@@ -70,7 +71,7 @@
   border:0 !important;
   border-radius:12px;
   background:transparent !important;
-  color:#ffb46d !important;
+  color:#fff7ed !important;
   box-shadow:none !important;
   text-shadow:none !important;
   font-weight:800;
@@ -78,7 +79,10 @@
 }
 .dashboard > .tabs .btn::before{display:none}
 .dashboard > .tabs .btn:hover,
-.dashboard > .tabs .btn.secondary:hover{background:#4c382f !important;color:#ffd0a3 !important}
+.dashboard > .tabs .btn.secondary:hover{
+  background:rgba(255,208,93,.18) !important;
+  color:#ffd05d !important;
+}
 
 /* Replace stark white dashboard areas with warm peach/cream. */
 .dashboard #userContent > .panel,
