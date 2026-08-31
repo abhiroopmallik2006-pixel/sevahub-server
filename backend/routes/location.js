@@ -4,6 +4,7 @@ const {auth,authorize}=require('../middleware/auth');
 const router=express.Router();
 
 const LIVE_MS=5*60*1000;
+const REQUEST_STATUSES=['PENDING','BARGAINING','COUNTER_OFFER_PENDING_USER'];
 
 async function ensureLocationTable(){
   await pool.query(`CREATE TABLE IF NOT EXISTS user_locations (
@@ -40,7 +41,7 @@ async function activeCounterparts(user){
   }
   const [rows]=await pool.query(`SELECT b.id booking_id,w.user_id counterpart_user_id
     FROM bookings b JOIN workers w ON w.id=b.worker_id
-    WHERE b.user_id=? AND b.status IN ('PENDING','ACCEPTED','IN_PROGRESS')`,[user.id]);
+    WHERE b.user_id=? AND b.status IN ('PENDING','BARGAINING','COUNTER_OFFER_PENDING_USER','ACCEPTED','IN_PROGRESS')`,[user.id]);
   return rows;
 }
 
@@ -137,9 +138,9 @@ router.get('/booking/:id',auth,async(req,res,next)=>{try{
   if(!isCustomer&&!isWorker)return res.status(403).json({success:false,message:'You cannot view this booking location'});
 
   const active=['ACCEPTED','IN_PROGRESS'].includes(b.status);
-  const pendingForAssignedWorker=b.status==='PENDING'&&isWorker;
-  if(!active&&!pendingForAssignedWorker){
-    return res.status(400).json({success:false,message:'Customer details are available to the assigned worker while the request is pending or active. Worker live tracking starts after acceptance.'});
+  const requestForAssignedWorker=REQUEST_STATUSES.includes(b.status)&&isWorker;
+  if(!active&&!requestForAssignedWorker){
+    return res.status(400).json({success:false,message:'Customer details are available to the assigned worker while the request is pending, bargaining, or active. Worker live tracking starts after acceptance.'});
   }
 
   const [locs]=await pool.query(`SELECT user_id,latitude,longitude,accuracy_m,sharing_enabled,updated_at
@@ -162,7 +163,7 @@ router.get('/booking/:id',auth,async(req,res,next)=>{try{
   res.json({success:true,data:{
     bookingId,
     status:b.status,
-    mode:pendingForAssignedWorker?'CUSTOMER_REQUEST':'ACTIVE',
+    mode:requestForAssignedWorker?'CUSTOMER_REQUEST':'ACTIVE',
     bookingAddress:isWorker?(b.address||null):null,
     customer,
     worker,
