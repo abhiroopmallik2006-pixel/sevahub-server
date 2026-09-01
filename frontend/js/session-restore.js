@@ -127,11 +127,13 @@
 
     let saved;
     try{saved=JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(e){saved=null}
-    if(!saved?.user||!saved?.role) return;
 
     if(!isDemo){
       const token=sessionStorage.getItem(TOKEN_KEY)||localStorage.getItem(TOKEN_KEY);
-      if(!token){clearAuth();return;}
+      if(!token){
+        if(saved?.user||saved?.role)clearAuth();
+        return;
+      }
       try{
         if(!sessionStorage.getItem(TOKEN_KEY))sessionStorage.setItem(TOKEN_KEY,token);
         const me=(await api('/auth/me')).data;
@@ -142,7 +144,11 @@
         clearAuth();
         return;
       }
+    }else if(!saved?.user||!saved?.role){
+      return;
     }
+
+    if(!saved?.user||!saved?.role)return;
 
     const route=savedRoute();
     const s=safeState();
