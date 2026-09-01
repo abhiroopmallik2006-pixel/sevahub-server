@@ -13,11 +13,15 @@
     try{storage.removeItem(key)}catch(e){}
   }
 
+  /* sessionStorage is the source of truth while the current tab/WebView is
+     alive. login() writes the freshly issued token there first. Previously we
+     preferred localStorage, which could copy an older USER/WORKER token back
+     over a new login and cause 403 "Access denied" on role-protected APIs. */
   function syncToken(){
-    const token=read(localStorage,TOKEN_KEY)||read(sessionStorage,TOKEN_KEY);
+    const token=read(sessionStorage,TOKEN_KEY)||read(localStorage,TOKEN_KEY);
     if(!token)return null;
-    write(localStorage,TOKEN_KEY,token);
     write(sessionStorage,TOKEN_KEY,token);
+    write(localStorage,TOKEN_KEY,token);
     return token;
   }
 
@@ -40,8 +44,8 @@
   syncToken();
 
   /* app.js historically reads only sessionStorage. Before every API call,
-     repopulate it from localStorage so a closed/reopened browser or WebView
-     keeps authenticating without asking the user to sign in again. */
+     repopulate it from the active session first, falling back to the persistent
+     token only when the current tab has no token yet. */
   try{
     const originalApi=globalThis.api;
     if(typeof originalApi==='function'&&!originalApi.__persistentTokenWrapped){
@@ -59,7 +63,11 @@
     if(typeof original!=='function'||original.__persistentLoginWrapped)return;
     const wrapped=async function(...args){
       const result=await original.apply(this,args);
-      syncToken();
+      /* Persist the token produced by this login/registration, never an older
+         local token from a previous role/account. */
+      const fresh=read(sessionStorage,TOKEN_KEY);
+      if(fresh)write(localStorage,TOKEN_KEY,fresh);
+      else syncToken();
       saveIdentity();
       return result;
     };
@@ -90,8 +98,8 @@
       const result=await api('/auth/refresh',{method:'POST'});
       const fresh=result?.data?.token;
       if(fresh){
-        write(localStorage,TOKEN_KEY,fresh);
         write(sessionStorage,TOKEN_KEY,fresh);
+        write(localStorage,TOKEN_KEY,fresh);
       }
     }catch(e){
       /* Render may be waking from a cold start or temporarily offline. Never
