@@ -1,12 +1,14 @@
 /* SevaHub Support Center v2
    Stable by design: no MutationObserver, no polling and no background API calls.
-   Tickets and Support AI run only when the user explicitly opens/uses Support. */
+   Tickets, Support AI and human chat run only when the user explicitly opens/uses Support. */
 (function(){
   const DEMO_KEY='sevahub_support_tickets_v2';
   const categoryOptions=[
     ['BOOKING','Booking'],['PAYMENT','Payment'],['BARGAINING','Bargaining'],['LOCATION','Location'],
     ['ACCOUNT','Account'],['SAFETY','Safety'],['TECHNICAL','Technical'],['OTHER','Other']
   ];
+  let activeSupportChatTicketId=null;
+  let activeSupportChatSubject='';
 
   function hi(){
     try{return localStorage.getItem('sevahub_language_v1')==='hi'}catch(e){return false}
@@ -25,7 +27,10 @@
       q3:'Safety issue',a3:'Safety category चुनें और जरूरी जानकारी short और clear रखें।',
       newTicket:'नया support ticket',category:'Category',subject:'Subject',booking:'Booking # (optional)',message:'Issue details',send:'Ticket भेजें',
       myTickets:'मेरे tickets',loading:'Tickets load हो रहे हैं…',empty:'अभी कोई support ticket नहीं है।',resolve:'Resolved mark करें',
-      created:'Support ticket बन गया',resolved:'Ticket resolved mark हो गया',open:'OPEN',resolvedLabel:'RESOLVED'
+      created:'Support ticket बन गया',resolved:'Ticket resolved mark हो गया',open:'OPEN',resolvedLabel:'RESOLVED',
+      chat:'💬 Admin से chat',chatTitle:'Support Admin Chat',chatEmpty:'अभी कोई chat message नहीं है। Admin को message भेज सकते हैं।',
+      chatPlaceholder:'Admin को message लिखें…',chatSend:'भेजें',chatRefresh:'Refresh',chatClose:'बंद करें',adminLabel:'SevaHub Admin',youLabel:'आप',
+      chatNote:'Resolved ticket पर नया message भेजने से ticket दोबारा OPEN हो जाएगा।'
     }:{
       tab:'🛟 Support',title:'🛟 Support Center',intro:'Create a ticket for booking, payment, bargaining, location, account or technical issues.',
       aiTitle:'✨ AI Support Assistant',aiIntro:'Describe the issue first. AI can troubleshoot and suggest the next step; if needed, submit a support ticket below.',
@@ -38,7 +43,10 @@
       q3:'Safety issue',a3:'Choose the Safety category and keep the important details clear and concise.',
       newTicket:'New support ticket',category:'Category',subject:'Subject',booking:'Booking # (optional)',message:'Issue details',send:'Submit ticket',
       myTickets:'My tickets',loading:'Loading tickets…',empty:'No support tickets yet.',resolve:'Mark resolved',
-      created:'Support ticket created',resolved:'Ticket marked resolved',open:'OPEN',resolvedLabel:'RESOLVED'
+      created:'Support ticket created',resolved:'Ticket marked resolved',open:'OPEN',resolvedLabel:'RESOLVED',
+      chat:'💬 Chat with Admin',chatTitle:'Support Admin Chat',chatEmpty:'No chat messages yet. You can send a message to the cooperative admin.',
+      chatPlaceholder:'Message the admin…',chatSend:'Send',chatRefresh:'Refresh',chatClose:'Close',adminLabel:'SevaHub Admin',youLabel:'You',
+      chatNote:'Sending a new message on a resolved ticket will reopen the ticket.'
     };
   }
 
@@ -95,18 +103,23 @@
       const status=String(t.status||'OPEN').toUpperCase();
       const open=status!=='RESOLVED';
       const date=t.created_at?new Date(t.created_at).toLocaleString():'';
+      const messageCount=Number(t.message_count??(Array.isArray(t.chat)?t.chat.length:0));
       return `<div class="support-ticket-card">
         <div class="split support-ticket-head">
-          <div><b>#${Number(t.id)} · ${esc(t.subject||'Support ticket')}</b><div class="muted">${esc(categoryLabel(t.category))}${t.booking_id?` · Booking #${Number(t.booking_id)}`:''}${date?` · ${esc(date)}`:''}</div></div>
+          <div><b>#${Number(t.id)} · ${esc(t.subject||'Support ticket')}</b><div class="muted">${esc(categoryLabel(t.category))}${t.booking_id?` · Booking #${Number(t.booking_id)}`:''}${date?` · ${esc(date)}`:''}${messageCount?` · 💬 ${messageCount}`:''}</div></div>
           <span class="pill ${open?'warning':'success'}">${open?esc(c.open):esc(c.resolvedLabel)}</span>
         </div>
         <p>${esc(t.message||'')}</p>
-        ${open?`<button class="btn secondary small" type="button" onclick="resolveSupportTicket(${Number(t.id)})">${esc(c.resolve)}</button>`:''}
+        <div class="support-ticket-actions">
+          <button class="btn small" type="button" onclick='openSupportHumanChat(${Number(t.id)},${JSON.stringify(String(t.subject||'Support ticket'))})'>${esc(c.chat)}</button>
+          ${open?`<button class="btn secondary small" type="button" onclick="resolveSupportTicket(${Number(t.id)})">${esc(c.resolve)}</button>`:''}
+        </div>
       </div>`;
     }).join('');
   }
 
   window.openSupportCenter=async function(){
+    activeSupportChatTicketId=null;activeSupportChatSubject='';
     const host=contentHost();
     if(!host)return;
     const c=supportCopy();
@@ -145,6 +158,7 @@
         </form>
         <section class="support-tickets"><div class="split"><h3>${esc(c.myTickets)}</h3><button class="btn secondary small" type="button" onclick="loadSupportTickets()">↻</button></div><div id="supportTicketList"><div class="empty">${esc(c.loading)}</div></div></section>
       </div>
+      <section id="supportHumanChat" class="support-human-chat hidden"></section>
     </div>`;
     await window.loadSupportTickets();
   };
@@ -209,6 +223,71 @@
     }
   };
 
+  window.openSupportHumanChat=async function(id,subject){
+    activeSupportChatTicketId=Number(id);activeSupportChatSubject=String(subject||'Support ticket');
+    await window.loadSupportHumanChat();
+  };
+
+  window.closeSupportHumanChat=function(){
+    activeSupportChatTicketId=null;activeSupportChatSubject='';
+    const panel=document.getElementById('supportHumanChat');
+    if(panel){panel.classList.add('hidden');panel.innerHTML='';}
+  };
+
+  window.loadSupportHumanChat=async function(){
+    const id=Number(activeSupportChatTicketId);
+    const panel=document.getElementById('supportHumanChat');
+    if(!panel||!id)return;
+    const c=supportCopy();
+    panel.classList.remove('hidden');
+    panel.innerHTML=`<div class="support-human-head"><div><h3>💬 ${esc(c.chatTitle)} · #${id}</h3><p class="muted">${esc(activeSupportChatSubject)}</p></div><div class="support-human-head-actions"><button class="btn secondary small" type="button" onclick="loadSupportHumanChat()">↻ ${esc(c.chatRefresh)}</button><button class="btn secondary small" type="button" onclick="closeSupportHumanChat()">${esc(c.chatClose)}</button></div></div><div class="empty">${esc(c.loading)}</div>`;
+    try{
+      let messages=[];
+      if(typeof isDemo!=='undefined'&&isDemo){
+        const ticket=demoTickets().find(t=>Number(t.id)===id&&Number(t.user_id)===Number(state.user?.id)&&t.role===state.role);
+        if(!ticket)throw new Error('Support ticket not found');
+        messages=Array.isArray(ticket.chat)?ticket.chat:[];
+      }else{
+        const r=await api(`/support/${id}/messages`);
+        messages=r.data?.messages||[];
+      }
+      const messageHtml=messages.length?messages.map(m=>{
+        const admin=String(m.sender_type||m.senderType||'').toUpperCase()==='ADMIN';
+        const when=m.created_at?new Date(m.created_at).toLocaleString():'';
+        return `<div class="support-human-msg ${admin?'admin':'member'}"><b>${esc(admin?c.adminLabel:c.youLabel)}</b><div>${esc(m.message||'')}</div>${when?`<small>${esc(when)}</small>`:''}</div>`;
+      }).join(''):`<div class="empty">${esc(c.chatEmpty)}</div>`;
+      panel.innerHTML=`<div class="support-human-head"><div><h3>💬 ${esc(c.chatTitle)} · #${id}</h3><p class="muted">${esc(activeSupportChatSubject)}</p></div><div class="support-human-head-actions"><button class="btn secondary small" type="button" onclick="loadSupportHumanChat()">↻ ${esc(c.chatRefresh)}</button><button class="btn secondary small" type="button" onclick="closeSupportHumanChat()">${esc(c.chatClose)}</button></div></div><div id="supportHumanMessages" class="support-human-messages">${messageHtml}</div><form class="support-human-input" onsubmit="sendSupportHumanMessage(event)"><input id="supportHumanInput" maxlength="1500" autocomplete="off" placeholder="${esc(c.chatPlaceholder)}" required><button class="btn small" type="submit">${esc(c.chatSend)}</button></form><p class="muted support-human-note">${esc(c.chatNote)}</p>`;
+      const body=document.getElementById('supportHumanMessages');if(body)body.scrollTop=body.scrollHeight;
+      panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+    }catch(e){panel.innerHTML=`<div class="support-human-head"><h3>💬 ${esc(c.chatTitle)}</h3><button class="btn secondary small" type="button" onclick="closeSupportHumanChat()">${esc(c.chatClose)}</button></div><div class="empty">${esc(e.message||'Support chat could not load')}</div>`;}
+  };
+
+  window.sendSupportHumanMessage=async function(e){
+    e.preventDefault();
+    const id=Number(activeSupportChatTicketId);
+    const input=document.getElementById('supportHumanInput');
+    const message=input?.value.trim()||'';
+    if(!id||!message)return;
+    const btn=e.target.querySelector('button[type=submit]');
+    try{
+      if(btn){btn.disabled=true;btn.textContent='…'}
+      if(typeof isDemo!=='undefined'&&isDemo){
+        const rows=demoTickets();
+        const ticket=rows.find(t=>Number(t.id)===id&&Number(t.user_id)===Number(state.user?.id)&&t.role===state.role);
+        if(!ticket)throw new Error('Support ticket not found');
+        ticket.chat=Array.isArray(ticket.chat)?ticket.chat:[];
+        ticket.chat.push({id:Date.now(),sender_type:'MEMBER',message,created_at:new Date().toISOString()});
+        ticket.status='OPEN';ticket.updated_at=new Date().toISOString();saveDemoTickets(rows);
+      }else{
+        await api(`/support/${id}/messages`,{method:'POST',body:JSON.stringify({message})});
+      }
+      if(input)input.value='';
+      await window.loadSupportHumanChat();
+      await window.loadSupportTickets();
+    }catch(err){toast(err.message||'Could not send support message')}
+    finally{if(btn){btn.disabled=false;btn.textContent=supportCopy().chatSend}}
+  };
+
   window.loadSupportTickets=async function(){
     try{
       let rows;
@@ -237,7 +316,7 @@
       if(btn){btn.disabled=true;btn.textContent='Sending…'}
       if(typeof isDemo!=='undefined'&&isDemo){
         const rows=demoTickets();
-        rows.push({id:Date.now(),user_id:state.user.id,role:state.role,category,subject,message,booking_id:bookingId,status:'OPEN',created_at:new Date().toISOString()});
+        rows.push({id:Date.now(),user_id:state.user.id,role:state.role,category,subject,message,booking_id:bookingId,status:'OPEN',created_at:new Date().toISOString(),chat:[]});
         saveDemoTickets(rows);
       }else{
         await api('/support',{method:'POST',body:JSON.stringify({category,subject,message,bookingId})});
