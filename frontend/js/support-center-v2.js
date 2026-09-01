@@ -1,6 +1,6 @@
 /* SevaHub Support Center v2
    Stable by design: no MutationObserver, no polling and no background API calls.
-   Tickets load only when the user explicitly opens Support. */
+   Tickets and Support AI run only when the user explicitly opens/uses Support. */
 (function(){
   const DEMO_KEY='sevahub_support_tickets_v2';
   const categoryOptions=[
@@ -15,6 +15,11 @@
   function supportCopy(){
     return hi()?{
       tab:'🛟 सहायता',title:'🛟 सहायता केंद्र',intro:'Booking, payment, bargaining, location, account या technical issue के लिए ticket बनाएँ।',
+      aiTitle:'✨ AI Support Assistant',aiIntro:'Issue बताइए। AI पहले troubleshooting और next step बताएगा; जरूरत होने पर नीचे support ticket बना सकते हैं।',
+      aiHello:'नमस्ते! अपना support issue बताइए — जैसे “payment update नहीं हुआ” या “booking status समझ नहीं आ रहा”.',
+      aiPlaceholder:'अपना support issue लिखें…',aiAsk:'AI से पूछें',aiThinking:'SevaHub Support AI सोच रहा है…',
+      aiNote:'AI guidance देता है; payment/refund/account/ticket में बदलाव अपने-आप नहीं करता। OTP, UPI PIN, password या card PIN कभी न भेजें।',
+      quickBooking:'📋 Booking help',quickPayment:'💳 Payment help',quickLocation:'📍 Location help',
       quick:'जल्दी मदद',q1:'Booking issue',a1:'Booking number जोड़ें ताकि issue जल्दी identify हो सके।',
       q2:'Payment issue',a2:'Payment ID/UPI PIN जैसी sensitive details message में न लिखें।',
       q3:'Safety issue',a3:'Safety category चुनें और जरूरी जानकारी short और clear रखें।',
@@ -23,6 +28,11 @@
       created:'Support ticket बन गया',resolved:'Ticket resolved mark हो गया',open:'OPEN',resolvedLabel:'RESOLVED'
     }:{
       tab:'🛟 Support',title:'🛟 Support Center',intro:'Create a ticket for booking, payment, bargaining, location, account or technical issues.',
+      aiTitle:'✨ AI Support Assistant',aiIntro:'Describe the issue first. AI can troubleshoot and suggest the next step; if needed, submit a support ticket below.',
+      aiHello:'Hi! Tell me the support issue — for example “my payment is not updated” or “I do not understand my booking status”.',
+      aiPlaceholder:'Describe your support issue…',aiAsk:'Ask AI',aiThinking:'SevaHub Support AI is thinking…',
+      aiNote:'AI gives guidance only; it does not automatically change payments, refunds, accounts or ticket status. Never share OTPs, UPI PINs, passwords or card PINs.',
+      quickBooking:'📋 Booking help',quickPayment:'💳 Payment help',quickLocation:'📍 Location help',
       quick:'Quick help',q1:'Booking issue',a1:'Add the booking number so the issue can be identified quickly.',
       q2:'Payment issue',a2:'Do not include sensitive details such as UPI PINs or passwords.',
       q3:'Safety issue',a3:'Choose the Safety category and keep the important details clear and concise.',
@@ -103,6 +113,22 @@
     const options=categoryOptions.map(([v,label])=>`<option value="${v}">${esc(label)}</option>`).join('');
     host.innerHTML=`<div class="card panel support-center-v2">
       <div class="support-hero"><div class="support-icon">🛟</div><div><h2>${esc(c.title)}</h2><p class="muted">${esc(c.intro)}</p></div></div>
+
+      <section class="support-ai-card">
+        <div class="support-ai-head"><div class="support-ai-icon">✨</div><div><h3>${esc(c.aiTitle)}</h3><p class="muted">${esc(c.aiIntro)}</p></div></div>
+        <div class="support-ai-actions">
+          <button class="btn secondary small" type="button" onclick="supportQuickAI('I need help understanding my booking status.')">${esc(c.quickBooking)}</button>
+          <button class="btn secondary small" type="button" onclick="supportQuickAI('My payment is not showing correctly. What should I check?')">${esc(c.quickPayment)}</button>
+          <button class="btn secondary small" type="button" onclick="supportQuickAI('My location sharing is not working. What should I check?')">${esc(c.quickLocation)}</button>
+        </div>
+        <div id="supportAiMessages" class="support-ai-chat"><div class="msg ai-msg">${esc(c.aiHello)}</div></div>
+        <form class="support-ai-input" onsubmit="askSupportAI(event)">
+          <input id="supportAiInput" maxlength="1600" autocomplete="off" placeholder="${esc(c.aiPlaceholder)}" required>
+          <button id="supportAiBtn" class="btn small" type="submit">${esc(c.aiAsk)}</button>
+        </form>
+        <p class="muted support-ai-note">${esc(c.aiNote)}</p>
+      </section>
+
       <div class="support-quick-grid">
         <div class="support-help-card"><b>📋 ${esc(c.q1)}</b><p class="muted">${esc(c.a1)}</p></div>
         <div class="support-help-card"><b>💳 ${esc(c.q2)}</b><p class="muted">${esc(c.a2)}</p></div>
@@ -121,6 +147,66 @@
       </div>
     </div>`;
     await window.loadSupportTickets();
+  };
+
+  window.supportQuickAI=function(text){
+    const input=document.getElementById('supportAiInput');
+    if(!input)return;
+    input.value=text;
+    input.focus();
+  };
+
+  function appendSupportAI(text,mine){
+    const body=document.getElementById('supportAiMessages');
+    if(!body)return null;
+    const div=document.createElement('div');
+    div.className='msg '+(mine?'user':'ai-msg');
+    div.textContent=String(text||'');
+    body.appendChild(div);
+    body.scrollTop=body.scrollHeight;
+    return div;
+  }
+
+  function demoSupportAI(message){
+    const q=String(message||'').toLowerCase();
+    if(q.includes('payment')||q.includes('upi')||q.includes('card'))return 'First check the booking payment method and current booking/payment status. Do not share any OTP, UPI PIN or card PIN. If the amount was deducted but SevaHub still does not show it correctly, create a Payment support ticket below and attach the booking number.';
+    if(q.includes('location')||q.includes('gps'))return 'Check that phone Location permission is allowed and SevaHub Location sharing is ON, then refresh your location. If it still fails, create a Location support ticket with the booking number if the issue is booking-related.';
+    if(q.includes('booking')||q.includes('status'))return 'Open My Bookings/Bookings and check the current status first. If a status looks stuck or incorrect, add the booking number below and create a Booking support ticket so it can be reviewed.';
+    if(q.includes('bargain')||q.includes('offer')||q.includes('counter'))return 'Check whether the latest offer is still PENDING, ACCEPTED, REJECTED or COUNTERED. If the visible state does not match what happened, create a Bargaining support ticket with the booking number.';
+    return 'I can help troubleshoot booking, payment, bargaining, location, account and technical issues. Describe what happened and, if it relates to a booking, add the booking number in the support form below.';
+  }
+
+  window.askSupportAI=async function(e){
+    e.preventDefault();
+    const c=supportCopy();
+    const input=document.getElementById('supportAiInput');
+    const btn=document.getElementById('supportAiBtn');
+    const message=input?.value.trim()||'';
+    if(!message)return;
+    const bookingRaw=document.getElementById('supportBookingId')?.value.trim()||'';
+    const bookingId=bookingRaw?Number(bookingRaw):null;
+    appendSupportAI(message,true);
+    input.value='';
+    const typing=appendSupportAI(c.aiThinking,false);
+    if(typing)typing.classList.add('typing');
+    try{
+      if(btn)btn.disabled=true;
+      let answer;
+      if(typeof isDemo!=='undefined'&&isDemo){
+        await new Promise(r=>setTimeout(r,350));
+        answer=demoSupportAI(message);
+      }else{
+        const r=await api('/support/ai',{method:'POST',body:JSON.stringify({message,bookingId})});
+        answer=r.data?.message||'No support answer was returned.';
+      }
+      if(typing){typing.classList.remove('typing');typing.textContent=answer;}
+    }catch(err){
+      if(typing){typing.classList.remove('typing');typing.textContent=err.message||'AI support is unavailable right now.';}
+    }finally{
+      if(btn)btn.disabled=false;
+      const body=document.getElementById('supportAiMessages');if(body)body.scrollTop=body.scrollHeight;
+      input?.focus();
+    }
   };
 
   window.loadSupportTickets=async function(){
