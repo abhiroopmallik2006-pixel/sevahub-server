@@ -26,11 +26,13 @@ const signLoginToken=(user)=>jwt.sign(
 );
 
 // --- Email OTP -------------------------------------------------------------
+// OTP email is intentionally used only for registration and password reset.
 
 router.post('/send-otp',async(req,res,next)=>{
   try{
     const email=String(req.body.email||'').trim().toLowerCase();
-    const purpose=['REGISTER','LOGIN','RESET'].includes(req.body.purpose)?req.body.purpose:'REGISTER';
+    const purpose=String(req.body.purpose||'REGISTER').toUpperCase();
+    if(!['REGISTER','RESET'].includes(purpose)) return res.status(400).json({success:false,message:'Invalid verification purpose'});
     if(!isValidEmail(email)) return res.status(400).json({success:false,message:'Enter a valid email address'});
 
     if(purpose==='REGISTER'){
@@ -38,7 +40,11 @@ router.post('/send-otp',async(req,res,next)=>{
       if(existing.length) return res.status(409).json({success:false,message:'This email is already registered. Please login instead.'});
     }
 
-    // Throttle resends per email+purpose
+    if(purpose==='RESET'){
+      const [existing]=await pool.query('SELECT id FROM users WHERE email=?',[email]);
+      if(!existing.length) return res.status(404).json({success:false,message:'No SevaHub account is registered with this email'});
+    }
+
     const [recent]=await pool.query(
       'SELECT created_at FROM email_otps WHERE email=? AND purpose=? ORDER BY created_at DESC LIMIT 1',
       [email,purpose]
@@ -56,7 +62,7 @@ router.post('/send-otp',async(req,res,next)=>{
       [email,hashOtp(otp),purpose,otpExpiryDate()]
     );
     const {simulated}=await sendOtpEmail(email,otp,{purpose});
-    res.json({success:true,message:'Verification code sent to your email',...(simulated?{devOtp:otp}:{})});
+    res.json({success:true,message:purpose==='RESET'?'Password reset code sent to your email':'Verification code sent to your email',...(simulated?{devOtp:otp}:{})});
   }catch(e){next(e)}
 });
 
@@ -64,7 +70,8 @@ router.post('/verify-otp',async(req,res,next)=>{
   try{
     const email=String(req.body.email||'').trim().toLowerCase();
     const otp=String(req.body.otp||'').trim();
-    const purpose=['REGISTER','LOGIN','RESET'].includes(req.body.purpose)?req.body.purpose:'REGISTER';
+    const purpose=String(req.body.purpose||'REGISTER').toUpperCase();
+    if(!['REGISTER','RESET'].includes(purpose)) return res.status(400).json({success:false,message:'Invalid verification purpose'});
     if(!isValidEmail(email)||!otp) return res.status(400).json({success:false,message:'Email and code are required'});
 
     const [rows]=await pool.query(
@@ -85,7 +92,30 @@ router.post('/verify-otp',async(req,res,next)=>{
       return res.status(400).json({success:false,message:'Incorrect code. Please try again.'});
     }
     await pool.query('UPDATE email_otps SET verified=TRUE WHERE id=?',[record.id]);
-    res.json({success:true,message:'Email verified'});
+    res.json({success:true,message:purpose==='RESET'?'Code verified. You can now choose a new password.':'Email verified'});
+  }catch(e){next(e)}
+});
+
+router.post('/reset-password',async(req,res,next)=>{
+  try{
+    const email=String(req.body.email||'').trim().toLowerCase();
+    const newPassword=String(req.body.newPassword||'');
+    if(!isValidEmail(email)) return res.status(400).json({success:false,message:'Enter a valid email address'});
+    if(newPassword.length<6) return res.status(400).json({success:false,message:'New password must be at least 6 characters'});
+
+    const [verified]=await pool.query(
+      `SELECT id FROM email_otps WHERE email=? AND purpose='RESET' AND verified=TRUE
+       AND expires_at>NOW() ORDER BY created_at DESC LIMIT 1`,[email]
+    );
+    if(!verified.length) return res.status(400).json({success:false,message:'Verify the password reset code first'});
+
+    const [users]=await pool.query('SELECT id FROM users WHERE email=?',[email]);
+    if(!users.length) return res.status(404).json({success:false,message:'Account not found'});
+
+    const hash=await bcrypt.hash(newPassword,10);
+    await pool.query('UPDATE users SET password_hash=? WHERE id=?',[hash,users[0].id]);
+    await pool.query("DELETE FROM email_otps WHERE email=? AND purpose='RESET'",[email]);
+    res.json({success:true,message:'Password reset successfully. You can now sign in with your new password.'});
   }catch(e){next(e)}
 });
 
@@ -95,7 +125,6 @@ router.post('/register',async(req,res,next)=>{
   if(!fullName||!email) return res.status(400).json({success:false,message:'Name and email are required'});
   if(!['USER','WORKER'].includes(role)) return res.status(400).json({success:false,message:'Invalid role'});
 
-  // Require a verified email OTP from the last 30 minutes before allowing registration
   const [verifiedOtp]=await pool.query(
     `SELECT id FROM email_otps WHERE email=? AND purpose='REGISTER' AND verified=TRUE
      AND created_at > (NOW() - INTERVAL 30 MINUTE) ORDER BY created_at DESC LIMIT 1`,[email]
