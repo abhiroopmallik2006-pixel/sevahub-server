@@ -6,6 +6,7 @@ const {auth}=require('../middleware/auth');
 const {sendOtpEmail}=require('../utils/mailer');
 const {generateOtp,hashOtp,otpExpiryDate,MAX_ATTEMPTS,RESEND_COOLDOWN_SECONDS}=require('../utils/otp');
 const router=express.Router();
+const LOGIN_TOKEN_TTL=process.env.JWT_EXPIRES_IN||'3650d';
 
 const makeUsername=async(name)=>{
   const base=name.trim();
@@ -18,6 +19,11 @@ const makeUsername=async(name)=>{
 };
 
 const isValidEmail=(email)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email||'').trim());
+const signLoginToken=(user)=>jwt.sign(
+  {id:user.id,role:user.role,username:user.username},
+  process.env.JWT_SECRET,
+  {expiresIn:LOGIN_TOKEN_TTL}
+);
 
 // --- Email OTP -------------------------------------------------------------
 
@@ -115,8 +121,9 @@ router.post('/register',async(req,res,next)=>{
     }
     await conn.commit();
     await pool.query("DELETE FROM email_otps WHERE email=? AND purpose='REGISTER'",[email]);
-    const token=jwt.sign({id:userId,role,username},process.env.JWT_SECRET,{expiresIn:'7d'});
-    res.status(201).json({success:true,data:{user:{id:userId,fullName,username,email,phone:phone||null,role},token}});
+    const user={id:userId,fullName,username,email,phone:phone||null,role};
+    const token=signLoginToken(user);
+    res.status(201).json({success:true,data:{user,token}});
   }catch(e){await conn.rollback(); next(e)} finally{conn.release()}
 });
 
@@ -140,13 +147,22 @@ router.get('/me',auth,async(req,res,next)=>{
   }catch(e){next(e)}
 });
 
+router.post('/refresh',auth,async(req,res,next)=>{
+  try{
+    const [rows]=await pool.query('SELECT id,username,role FROM users WHERE id=?',[req.user.id]);
+    if(!rows.length) return res.status(404).json({success:false,message:'Account not found'});
+    const token=signLoginToken(rows[0]);
+    res.json({success:true,data:{token}});
+  }catch(e){next(e)}
+});
+
 router.post('/login',async(req,res,next)=>{
   try{
     const {username,password}=req.body;
     const [rows]=await pool.query('SELECT id,full_name,username,email,phone,role,password_hash FROM users WHERE username=?',[username]);
     if(!rows.length || !(await bcrypt.compare(password,rows[0].password_hash))) return res.status(401).json({success:false,message:'Invalid username or password'});
     const u=rows[0];
-    const token=jwt.sign({id:u.id,role:u.role,username:u.username},process.env.JWT_SECRET,{expiresIn:'7d'});
+    const token=signLoginToken(u);
     res.json({success:true,data:{user:{id:u.id,fullName:u.full_name,username:u.username,email:u.email,phone:u.phone,role:u.role},token}});
   }catch(e){next(e)}
 });
