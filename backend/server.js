@@ -33,6 +33,7 @@ app.use('/api/location',require('./routes/location'));
 app.use('/api/notifications',require('./routes/notifications'));
 app.use('/api/ai',require('./routes/ai'));
 app.use('/api/chat',require('./routes/chat'));
+app.use('/api/support',require('./routes/support'));
 
 app.get('/api/health',(req,res)=>res.json({success:true,status:'ok'}));
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'../frontend/index.html')));
