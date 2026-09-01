@@ -11,7 +11,7 @@
 
   function saveSession(){
     const s=safeState();
-    if(!s?.user||!s?.role) return;
+    if(!s?.user||!s?.role)return;
     try{localStorage.setItem(SESSION_KEY,JSON.stringify({role:s.role,user:s.user}))}catch(e){}
   }
 
@@ -33,12 +33,16 @@
   }
 
   function saveRoute(route){
-    if(restoring||!route) return;
+    if(restoring||!route)return;
     try{localStorage.setItem(ROUTE_KEY,JSON.stringify(route))}catch(e){}
   }
 
   function savedRoute(){
     try{return JSON.parse(localStorage.getItem(ROUTE_KEY)||'null')}catch(e){return null}
+  }
+
+  function savedSession(){
+    try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(e){return null}
   }
 
   function migrateOldSession(){
@@ -49,13 +53,16 @@
       if(!localStorage.getItem(ROUTE_KEY)&&sessionStorage.getItem(ROUTE_KEY)){
         localStorage.setItem(ROUTE_KEY,sessionStorage.getItem(ROUTE_KEY));
       }
+      if(!localStorage.getItem(TOKEN_KEY)&&sessionStorage.getItem(TOKEN_KEY)){
+        localStorage.setItem(TOKEN_KEY,sessionStorage.getItem(TOKEN_KEY));
+      }
     }catch(e){}
   }
 
   function wrap(name,routeBuilder){
     let original;
     try{original=globalThis[name]}catch(e){return}
-    if(typeof original!=='function'||original.__sevahubPersistWrapped) return;
+    if(typeof original!=='function'||original.__sevahubPersistWrapped)return;
     const wrapped=function(...args){
       if(!restoring){
         try{saveSession();saveRoute(routeBuilder(...args))}catch(e){}
@@ -96,10 +103,10 @@
   }catch(e){}
 
   async function restoreRoute(route){
-    if(!route) return;
+    if(!route)return;
     const fn=(name,...args)=>{
       const f=globalThis[name];
-      if(typeof f==='function') return f(...args);
+      if(typeof f==='function')return f(...args);
     };
     switch(route.view){
       case 'user-services': return fn('userServices');
@@ -121,53 +128,69 @@
     }
   }
 
-  async function restoreSession(){
-    migrateOldSession();
-    try{await window.sevahubPersistentAuthReady}catch(e){}
-
-    let saved;
-    try{saved=JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(e){saved=null}
-
-    if(!isDemo){
-      const token=sessionStorage.getItem(TOKEN_KEY)||localStorage.getItem(TOKEN_KEY);
-      if(!token){
-        if(saved?.user||saved?.role)clearAuth();
-        return;
-      }
-      try{
-        if(!sessionStorage.getItem(TOKEN_KEY))sessionStorage.setItem(TOKEN_KEY,token);
-        const me=(await api('/auth/me')).data;
-        if(!me?.id||!me?.role)throw new Error('Invalid account session');
-        saved={role:me.role,user:me};
-        localStorage.setItem(SESSION_KEY,JSON.stringify(saved));
-      }catch(e){
-        clearAuth();
-        return;
-      }
-    }else if(!saved?.user||!saved?.role){
-      return;
-    }
-
-    if(!saved?.user||!saved?.role)return;
-
-    const route=savedRoute();
+  function restoreDashboard(saved,route){
+    if(!saved?.user||!saved?.role)return false;
     const s=safeState();
-    if(!s) return;
+    if(!s)return false;
 
     restoring=true;
     try{
       s.role=saved.role;
       s.user=saved.user;
       render();
-      if(typeof initLiveChat==='function') initLiveChat();
+      if(typeof initLiveChat==='function')initLiveChat();
       Promise.resolve()
         .then(()=>restoreRoute(route))
         .catch(e=>console.warn('Could not restore SevaHub page',e))
         .finally(()=>{restoring=false;saveSession()});
+      return true;
     }catch(e){
       restoring=false;
       console.warn('Could not restore SevaHub session',e);
+      return false;
     }
+  }
+
+  function restoreSession(){
+    migrateOldSession();
+
+    let saved=savedSession();
+    const token=isDemo?null:(localStorage.getItem(TOKEN_KEY)||sessionStorage.getItem(TOKEN_KEY));
+    const route=savedRoute();
+
+    if(!isDemo&&token){
+      try{
+        localStorage.setItem(TOKEN_KEY,token);
+        sessionStorage.setItem(TOKEN_KEY,token);
+      }catch(e){}
+    }
+
+    /* Restore the known account immediately. Do not wait for Render/server
+       verification first; a cold start or temporary network failure must not
+       kick a user back to the login screen. */
+    const restored=Boolean(saved?.user&&saved?.role&&(isDemo||token))&&restoreDashboard(saved,route);
+
+    if(isDemo||!token)return;
+
+    /* Verify/update identity in the background. Failure is non-destructive:
+       the remembered login remains until the user explicitly presses Logout. */
+    Promise.resolve(window.sevahubPersistentAuthReady)
+      .catch(()=>{})
+      .then(async()=>{
+        try{
+          const me=(await api('/auth/me')).data;
+          if(!me?.id||!me?.role)return;
+          const fresh={role:me.role,user:me};
+          localStorage.setItem(SESSION_KEY,JSON.stringify(fresh));
+          if(!restored)restoreDashboard(fresh,route);
+          else{
+            const s=safeState();
+            if(s){s.role=me.role;s.user=me;saveSession()}
+          }
+        }catch(e){
+          console.warn('Persistent login verification deferred',e);
+        }
+      });
   }
 
   const app=document.getElementById('app');
@@ -175,11 +198,9 @@
 
   document.addEventListener('click',e=>{
     const el=e.target.closest('[onclick]');
-    if(el&&String(el.getAttribute('onclick')||'').includes('logout()')) clearAuth();
+    if(el&&String(el.getAttribute('onclick')||'').includes('logout()'))clearAuth();
   },true);
 
-  /* The route wrappers above already know the exact nested page. Do not replace
-     it with a more generic history state during reload. */
   window.addEventListener('beforeunload',()=>saveSession());
   window.addEventListener('popstate',()=>setTimeout(saveSession,80));
 
