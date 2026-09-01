@@ -3,6 +3,7 @@ const express=require('express');
 const http=require('http');
 const path=require('path');
 const cors=require('cors');
+const jwt=require('jsonwebtoken');
 const {Server}=require('socket.io');
 
 const app=express();
@@ -15,9 +16,51 @@ app.use(express.json());
 app.use(express.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname,'../frontend')));
 
+function verifySocketToken(token){
+  if(!token)return null;
+  try{return jwt.verify(String(token),process.env.JWT_SECRET)}catch(e){return null}
+}
+
 io.on('connection',socket=>{
   socket.on('join-user-room',userId=>{
     if(userId) socket.join(`user-${userId}`);
+  });
+
+  // Admin support room is protected with the same signed admin token used by
+  // the cooperative dashboard. Ordinary User/Worker sockets cannot join it.
+  socket.on('join-admin-support',token=>{
+    const payload=verifySocketToken(token);
+    if(payload?.role==='ADMIN'&&payload?.admin===true) socket.join('support-admin');
+  });
+
+  // The database write still happens through the authenticated REST route.
+  // This event only tells an open admin dashboard to fetch the newly committed
+  // message immediately, so Support chat behaves in realtime without polling.
+  socket.on('support-member-sent',data=>{
+    const payload=verifySocketToken(data?.token);
+    const ticketId=Number(data?.ticketId);
+    if(!payload||!['USER','WORKER'].includes(payload.role)||!Number.isInteger(ticketId)||ticketId<1)return;
+    io.to('support-admin').emit('support-message',{
+      ticketId,
+      senderType:'MEMBER',
+      userId:Number(payload.id),
+      role:payload.role
+    });
+  });
+
+  // Admin replies are committed by /api/admin first. Once that succeeds the
+  // dashboard sends this authenticated bridge event to the member's user room.
+  socket.on('support-admin-sent',data=>{
+    const payload=verifySocketToken(data?.token);
+    const ticketId=Number(data?.ticketId),userId=Number(data?.userId);
+    if(payload?.role!=='ADMIN'||payload?.admin!==true||!Number.isInteger(ticketId)||ticketId<1||!Number.isInteger(userId)||userId<1)return;
+    io.to(`user-${userId}`).emit('support-message',{ticketId,senderType:'ADMIN'});
+  });
+
+  socket.on('support-list-refresh',data=>{
+    const payload=verifySocketToken(data?.token);
+    if(!payload||!['USER','WORKER'].includes(payload.role))return;
+    io.to('support-admin').emit('support-ticket:refresh',{userId:Number(payload.id),role:payload.role});
   });
 });
 
