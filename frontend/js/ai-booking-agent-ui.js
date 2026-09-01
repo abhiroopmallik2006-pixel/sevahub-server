@@ -1,0 +1,67 @@
+/* Adds a lightweight AI-booking entry point to the User AI panel.
+   No MutationObserver: enhancement runs only when the AI panel is opened. */
+(function(){
+  const original=globalThis.userAI;
+  if(typeof original!=='function'||original.__sevahubAIBookingWrapped)return;
+
+  function isHindi(){
+    try{return localStorage.getItem('sevahub_language_v1')==='hi'}catch(e){return false}
+  }
+
+  function copy(){
+    return isHindi()?{
+      desc:'अपनी समस्या सामान्य भाषा में बताइए। AI सही service पहचान सकता है, available workers दिखा सकता है, worker चुनवा सकता है, date/time/location और bargaining पूछकर booking अपने-आप बना सकता है।',
+      chip:'🪚 AI से booking करवाएँ',
+      initial:'<b>नमस्ते! 👋</b><br>समस्या बताइए — जैसे <i>“मेरा bed खराब है”</i>। मैं service पहचानकर workers की list दूँगा और पूरी booking chat में करवा दूँगा।',
+      disclaimer:'AI booking तभी बनाता है जब worker, date, time, location और bargaining choice मिल जाए। Bargain होने पर worker Accept/Reject/Counter कर सकता है.'
+    }:{
+      desc:'Describe your problem normally. I can identify the service, show available workers, collect worker/date/time/location and bargaining details, then create the booking automatically.',
+      chip:'🪚 Book through AI',
+      initial:'<b>Hi! 👋</b><br>Tell me the problem — for example <i>“Mera bed kharab hai”</i>. I’ll identify the service, show workers, collect the details and create the booking in chat.',
+      disclaimer:'AI creates the booking only after worker, date, time, location and bargaining choice are provided. If you bargain, the worker can Accept, Reject or Counter.'
+    };
+  }
+
+  function enhance(){
+    try{
+      if(typeof state==='undefined'||state?.role!=='USER')return;
+      const panel=document.querySelector('#userContent .ai-panel');
+      if(!panel||panel.dataset.bookingAgentEnhanced==='1')return;
+      panel.dataset.bookingAgentEnhanced='1';
+      const c=copy();
+
+      const desc=panel.querySelector('.ai-hero p');
+      if(desc)desc.textContent=c.desc;
+
+      const prompts=panel.querySelector('.ai-prompts');
+      if(prompts){
+        const btn=document.createElement('button');
+        btn.id='aiBookingPrompt';
+        btn.type='button';
+        btn.className='ai-chip';
+        btn.textContent=c.chip;
+        btn.addEventListener('click',()=>{
+          if(typeof globalThis.useAIPrompt==='function')globalThis.useAIPrompt('Mera bed kharab hai, booking karwa do.');
+          else{
+            const input=document.getElementById('aiInput');
+            if(input){input.value='Mera bed kharab hai, booking karwa do.';input.focus();}
+          }
+        });
+        prompts.prepend(btn);
+      }
+
+      const first=panel.querySelector('#aiMessages .ai-msg');
+      if(first)first.innerHTML=c.initial;
+      const disclaimer=panel.querySelector('.ai-disclaimer');
+      if(disclaimer)disclaimer.textContent=c.disclaimer;
+    }catch(e){console.warn('AI booking UI enhancement skipped',e)}
+  }
+
+  const wrapped=function(...args){
+    const result=original.apply(this,args);
+    setTimeout(enhance,0);
+    return result;
+  };
+  wrapped.__sevahubAIBookingWrapped=true;
+  globalThis.userAI=wrapped;
+})();
