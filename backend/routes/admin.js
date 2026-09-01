@@ -2,6 +2,7 @@ const express=require('express');
 const crypto=require('crypto');
 const jwt=require('jsonwebtoken');
 const pool=require('../config');
+const {notify}=require('../utils/notifications');
 
 const router=express.Router();
 const ADMIN_TOKEN_TTL=process.env.ADMIN_JWT_EXPIRES_IN||'8h';
@@ -41,6 +42,22 @@ async function ensureWorkerVerification(){
   if(!(await columnExists('workers','verification_status'))){
     await pool.query("ALTER TABLE workers ADD COLUMN verification_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'");
   }
+}
+async function ensureSupportMessages(){
+  if(!(await tableExists('support_tickets')))return false;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS support_messages (
+      id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      ticket_id BIGINT NOT NULL,
+      sender_type VARCHAR(20) NOT NULL,
+      sender_user_id BIGINT NULL,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_support_messages_ticket (ticket_id, created_at),
+      CONSTRAINT fk_support_messages_ticket FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  return true;
 }
 
 router.post('/login',async(req,res)=>{
@@ -122,13 +139,49 @@ router.get('/bookings',adminAuth,async(req,res,next)=>{try{
 }catch(e){next(e)}});
 
 router.get('/support',adminAuth,async(req,res,next)=>{try{
-  if(!(await tableExists('support_tickets')))return res.json({success:true,data:[]});
+  if(!(await ensureSupportMessages()))return res.json({success:true,data:[]});
   const [rows]=await pool.query(`
     SELECT t.id,t.user_id,t.role,t.category,t.subject,t.message,t.booking_id,t.status,t.created_at,t.updated_at,
-      u.full_name,u.email
+      u.full_name,u.email,
+      (SELECT COUNT(*) FROM support_messages sm WHERE sm.ticket_id=t.id) message_count,
+      (SELECT MAX(sm.created_at) FROM support_messages sm WHERE sm.ticket_id=t.id) last_message_at
     FROM support_tickets t LEFT JOIN users u ON u.id=t.user_id
-    ORDER BY (t.status='OPEN') DESC,t.created_at DESC LIMIT 300`);
+    ORDER BY (t.status='OPEN') DESC,COALESCE((SELECT MAX(sm2.created_at) FROM support_messages sm2 WHERE sm2.ticket_id=t.id),t.created_at) DESC
+    LIMIT 300`);
   res.json({success:true,data:rows});
+}catch(e){next(e)}});
+
+router.get('/support/:id/messages',adminAuth,async(req,res,next)=>{try{
+  if(!(await ensureSupportMessages()))return res.status(404).json({success:false,message:'Support system not initialized'});
+  const id=Number(req.params.id);
+  if(!Number.isInteger(id)||id<1)return res.status(400).json({success:false,message:'Invalid support ticket'});
+  const [tickets]=await pool.query(`
+    SELECT t.id,t.user_id,t.role,t.category,t.subject,t.message,t.booking_id,t.status,t.created_at,u.full_name,u.email
+    FROM support_tickets t LEFT JOIN users u ON u.id=t.user_id
+    WHERE t.id=? LIMIT 1`,[id]);
+  if(!tickets.length)return res.status(404).json({success:false,message:'Support ticket not found'});
+  const [messages]=await pool.query(`
+    SELECT id,ticket_id,sender_type,message,created_at
+    FROM support_messages
+    WHERE ticket_id=? ORDER BY id ASC LIMIT 300`,[id]);
+  res.json({success:true,data:{ticket:tickets[0],messages}});
+}catch(e){next(e)}});
+
+router.post('/support/:id/messages',adminAuth,async(req,res,next)=>{try{
+  if(!(await ensureSupportMessages()))return res.status(404).json({success:false,message:'Support system not initialized'});
+  const id=Number(req.params.id);
+  const message=String(req.body.message||'').trim();
+  if(!Number.isInteger(id)||id<1)return res.status(400).json({success:false,message:'Invalid support ticket'});
+  if(message.length<1||message.length>1500)return res.status(400).json({success:false,message:'Message must be 1 to 1,500 characters'});
+  const [tickets]=await pool.query('SELECT id,user_id,role,subject FROM support_tickets WHERE id=? LIMIT 1',[id]);
+  if(!tickets.length)return res.status(404).json({success:false,message:'Support ticket not found'});
+  const ticket=tickets[0];
+  const [result]=await pool.query(`
+    INSERT INTO support_messages(ticket_id,sender_type,sender_user_id,message)
+    VALUES(?,'ADMIN',NULL,?)`,[id,message]);
+  await pool.query('UPDATE support_tickets SET updated_at=CURRENT_TIMESTAMP WHERE id=?',[id]);
+  await notify(req.app,ticket.user_id,'Support reply',`Admin replied to Support Ticket #${id}: ${message.slice(0,120)}`,'SUPPORT').catch(()=>{});
+  res.status(201).json({success:true,data:{id:result.insertId,ticketId:id,senderType:'ADMIN',message}});
 }catch(e){next(e)}});
 
 router.put('/support/:id/status',adminAuth,async(req,res,next)=>{try{
