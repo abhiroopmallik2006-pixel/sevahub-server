@@ -9,6 +9,9 @@
     ACCOUNT:'अकाउंट / लॉगिन',SAFETY:'सुरक्षा / व्यवहार',TECHNICAL:'ऐप / तकनीकी',OTHER:'अन्य'
   };
 
+  let supportOpening=false;
+  let refreshQueued=false;
+
   function isHindi(){try{return localStorage.getItem('sevahub_language_v1')==='hi'}catch(e){return false}}
   function x(s){try{return typeof esc==='function'?esc(s):String(s||'')}catch(e){return String(s||'')}}
   function supportBox(){return document.getElementById(state?.role==='WORKER'?'workerContent':'userContent')}
@@ -107,7 +110,9 @@
   }
 
   async function openSupportCenter(){
+    if(supportOpening)return;
     const box=supportBox();if(!box)return;
+    supportOpening=true;
     const c=copy();
     box.innerHTML=`<div class="card panel support-loading"><h2>${c.title}</h2><p class="muted">Loading support…</p></div>`;
     try{
@@ -132,7 +137,11 @@
         <div class="card panel"><h3>${c.history}</h3><div id="supportTicketList">${tickets.length?tickets.map(t=>ticketMarkup(t,c)).join(''):`<div class="empty">${c.empty}</div>`}</div></div>
       </div>`;
       try{localStorage.setItem('sevahub_ui_route_v1',JSON.stringify({view:state.role==='WORKER'?'worker-support':'user-support'}))}catch(e){}
-    }catch(err){box.innerHTML=`<div class="card panel"><h2>${c.title}</h2><div class="empty">${x(err.message||'Support is temporarily unavailable')}</div></div>`}
+    }catch(err){
+      box.innerHTML=`<div class="card panel"><h2>${c.title}</h2><div class="empty">${x(err.message||'Support is temporarily unavailable')}</div></div>`;
+    }finally{
+      supportOpening=false;
+    }
   }
   window.openSupportCenter=openSupportCenter;
   window.userSupport=openSupportCenter;
@@ -171,16 +180,27 @@
   };
 
   function restoreSupport(){
-    if(typeof state==='undefined'||!state?.user)return;
+    if(supportOpening||typeof state==='undefined'||!state?.user)return;
     try{
       const route=JSON.parse(localStorage.getItem('sevahub_ui_route_v1')||'null');
       if((state.role==='USER'&&route?.view==='user-support')||(state.role==='WORKER'&&route?.view==='worker-support')){
-        const box=supportBox();if(box&&!box.querySelector('.support-center'))openSupportCenter();
+        const box=supportBox();
+        if(box&&!box.querySelector('.support-center,.support-loading'))openSupportCenter();
       }
     }catch(e){}
   }
 
-  const observer=new MutationObserver(()=>{addTabs();restoreSupport()});
+  function scheduleRefresh(){
+    if(refreshQueued)return;
+    refreshQueued=true;
+    setTimeout(()=>{
+      refreshQueued=false;
+      addTabs();
+      restoreSupport();
+    },120);
+  }
+
+  const observer=new MutationObserver(scheduleRefresh);
   observer.observe(document.body,{childList:true,subtree:true});
-  setTimeout(()=>{addTabs();restoreSupport()},0);
+  scheduleRefresh();
 })();
