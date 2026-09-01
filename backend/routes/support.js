@@ -26,6 +26,10 @@ function ensureTable(){
           INDEX idx_support_booking (booking_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
       `);
+      /* Keep chat storage independent from a DB-level foreign key. Some deployed
+         databases already have an older support_tickets definition, and adding
+         a FK at runtime can fail even though the app-level ownership checks are
+         valid. This table is still protected by authenticated ticket lookups. */
       await pool.query(`
         CREATE TABLE IF NOT EXISTS support_messages (
           id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -34,8 +38,7 @@ function ensureTable(){
           sender_user_id BIGINT NULL,
           message TEXT NOT NULL,
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_support_messages_ticket (ticket_id, created_at),
-          CONSTRAINT fk_support_messages_ticket FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+          INDEX idx_support_messages_ticket (ticket_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
       `);
     })().catch(err=>{
