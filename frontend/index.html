@@ -7,55 +7,90 @@
 <meta name="description" content="SevaHub cooperative household and community gig services platform">
 <meta name="theme-color" content="#b95417">
 <script>
-try{
-  const k='sevahub_ui_route_v1';
-  const r=JSON.parse(localStorage.getItem(k)||'null');
-  if(r&&String(r.view||'').includes('support')) localStorage.removeItem(k);
-}catch(e){try{localStorage.removeItem('sevahub_ui_route_v1')}catch(_){} }
+(function(){
+  try{
+    const k='sevahub_ui_route_v1';
+    const r=JSON.parse(localStorage.getItem(k)||'null');
+    if(r&&String(r.view||'').includes('support')) localStorage.removeItem(k);
+  }catch(e){try{localStorage.removeItem('sevahub_ui_route_v1')}catch(_){} }
+
+  function showBootError(message){
+    try{
+      const app=document.getElementById('app');
+      if(!app)return;
+      if(app.dataset.sevahubRendered==='1')return;
+      app.innerHTML='<main style="font-family:system-ui;padding:24px;max-width:680px;margin:auto">'+
+        '<h2>SevaHub could not finish loading</h2>'+
+        '<p style="line-height:1.5">'+String(message||'A startup file could not load.').replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})+'</p>'+
+        '<button onclick="location.reload()" style="padding:11px 16px;border:0;border-radius:10px;background:#b95417;color:white;font-weight:700">Retry</button>'+
+        '<p style="opacity:.65;font-size:13px;margin-top:16px">Server connection is separate from this frontend startup check.</p>'+
+        '</main>';
+    }catch(_){}
+  }
+  window.__sevahubBootError=showBootError;
+  window.addEventListener('error',function(e){
+    const msg=e&&e.message?e.message:(e&&e.target&&e.target.src?'Failed to load '+e.target.src:'Frontend startup error');
+    showBootError(msg);
+  },true);
+  window.addEventListener('unhandledrejection',function(e){
+    const reason=e&&e.reason;
+    showBootError(reason&&reason.message?reason.message:String(reason||'Frontend startup request failed'));
+  });
+})();
 </script>
-<link rel="stylesheet" href="css/style.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/responsive.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/auth-home.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/auth-service-carousel.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/dashboard-ui.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/location-ui.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/activity-report.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/notifications-ui.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/bargain-actions.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/mobile-app-extras.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/profile-menu.css?v=20260901-recovery1">
-<link rel="stylesheet" href="css/worker-reviews-chat.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/style.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/responsive.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/auth-home.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/auth-service-carousel.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/dashboard-ui.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/location-ui.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/activity-report.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/notifications-ui.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/bargain-actions.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/mobile-app-extras.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/profile-menu.css?v=20260901-recovery2">
+<link rel="stylesheet" href="css/worker-reviews-chat.css?v=20260901-recovery2">
 </head>
 <body>
-<div id="app" class="app"></div>
-<script src="/socket.io/socket.io.js?v=20260901-recovery1"></script>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="js/app.js?v=20260901-recovery1"></script>
-<script src="js/persistent-login.js?v=20260901-recovery1"></script>
-<script src="js/worker-reviews-chat.js?v=20260901-recovery1"></script>
-<script src="js/review-ui.js?v=20260901-recovery1"></script>
-<script src="js/payment-ui.js?v=20260901-recovery1"></script>
-<script src="js/location-ui.js?v=20260901-recovery1"></script>
-<script src="js/phone-location-permission.js?v=20260901-recovery1"></script>
-<script src="js/worker-customer-details.js?v=20260901-recovery1"></script>
-<script src="js/auth-home.js?v=20260901-recovery1"></script>
-<script src="js/auth-service-carousel.js?v=20260901-recovery1"></script>
-<script src="js/platform-language-worker-ai.js?v=20260901-recovery1"></script>
-<script src="js/ai-booking-agent-ui.js?v=20260901-recovery1"></script>
-<script src="js/history-nav.js?v=20260901-recovery1"></script>
-<script src="js/session-restore.js?v=20260901-recovery1"></script>
-<script src="js/activity-report.js?v=20260901-recovery1"></script>
-<script src="js/notifications-ui.js?v=20260901-recovery1"></script>
-<script src="js/notification-links.js?v=20260901-recovery1"></script>
-<script src="js/popular-services-brand.js?v=20260901-recovery1"></script>
-<script src="js/profile-menu.js?v=20260901-recovery1"></script>
+<div id="app" class="app"><main style="font-family:system-ui;padding:24px;text-align:center"><h2>SevaHub</h2><p>Loading…</p></main></div>
+
+<script defer src="/socket.io/socket.io.js?v=20260901-recovery2"></script>
+<script defer src="js/app.js?v=20260901-recovery2"></script>
+<script defer src="js/persistent-login.js?v=20260901-recovery2"></script>
+<script defer src="js/worker-reviews-chat.js?v=20260901-recovery2"></script>
+<script defer src="js/review-ui.js?v=20260901-recovery2"></script>
+<script defer src="js/payment-ui.js?v=20260901-recovery2"></script>
+<script defer src="js/location-ui.js?v=20260901-recovery2"></script>
+<script defer src="js/phone-location-permission.js?v=20260901-recovery2"></script>
+<script defer src="js/worker-customer-details.js?v=20260901-recovery2"></script>
+<script defer src="js/auth-home.js?v=20260901-recovery2"></script>
+<script defer src="js/auth-service-carousel.js?v=20260901-recovery2"></script>
+<script defer src="js/platform-language-worker-ai.js?v=20260901-recovery2"></script>
+<script defer src="js/ai-booking-agent-ui.js?v=20260901-recovery2"></script>
+<script defer src="js/history-nav.js?v=20260901-recovery2"></script>
+<script defer src="js/session-restore.js?v=20260901-recovery2"></script>
+<script defer src="js/activity-report.js?v=20260901-recovery2"></script>
+<script defer src="js/notifications-ui.js?v=20260901-recovery2"></script>
+<script defer src="js/notification-links.js?v=20260901-recovery2"></script>
+<script defer src="js/popular-services-brand.js?v=20260901-recovery2"></script>
+<script defer src="js/profile-menu.js?v=20260901-recovery2"></script>
+
+<!-- Razorpay is intentionally non-blocking. If its CDN is slow/blocked, SevaHub still opens; checkout itself will report unavailable when used. -->
+<script async src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-setTimeout(()=>{
-  try{
-    const app=document.getElementById('app');
-    if(app&&!app.innerHTML.trim()&&typeof render==='function') render();
-  }catch(e){console.error('SevaHub recovery render failed',e)}
-},1200);
+document.addEventListener('DOMContentLoaded',function(){
+  setTimeout(function(){
+    try{
+      const app=document.getElementById('app');
+      if(typeof render==='function'){
+        if(!app||!app.querySelector('.landing,.dashboard,.auth-shell,.login-page,.auth-home,.nav')) render();
+        if(app) app.dataset.sevahubRendered='1';
+      }else if(window.__sevahubBootError){
+        window.__sevahubBootError('Main app script did not load.');
+      }
+    }catch(e){if(window.__sevahubBootError)window.__sevahubBootError(e.message||String(e))}
+  },1500);
+});
 </script>
 </body>
 </html>
