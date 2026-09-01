@@ -32,10 +32,20 @@ app.use('/api/payments',require('./routes/payments'));
 app.use('/api/location',require('./routes/location'));
 app.use('/api/notifications',require('./routes/notifications'));
 app.use('/api/support',require('./routes/support'));
+app.use('/api/admin',require('./routes/admin'));
 app.use('/api/ai',require('./routes/ai'));
 app.use('/api/chat',require('./routes/chat'));
 
 app.get('/api/health',(req,res)=>res.json({success:true,status:'ok'}));
+
+/* Cooperative admin is intentionally separate from the User/Worker app.
+   There is no dashboard link to this route, and every admin API call requires
+   a dedicated ADMIN_EMAIL + ADMIN_PASSWORD protected admin token. */
+app.get('/cooperative-admin',(req,res)=>{
+  res.set('X-Robots-Tag','noindex, nofollow, noarchive');
+  res.sendFile(path.join(__dirname,'../frontend/cooperative-admin.html'));
+});
+
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'../frontend/index.html')));
 
 app.use((err,req,res,next)=>{
