@@ -45,6 +45,32 @@
     try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(e){return null}
   }
 
+  /* Decode only to keep local UI identity aligned with the already-signed JWT.
+     Server-side auth still verifies the signature on every protected request. */
+  function tokenIdentity(token){
+    try{
+      const part=String(token||'').split('.')[1];
+      if(!part)return null;
+      const normalized=part.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(part.length/4)*4,'=');
+      const binary=atob(normalized);
+      let text=binary;
+      try{
+        if(typeof TextDecoder!=='undefined'){
+          const bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));
+          text=new TextDecoder().decode(bytes);
+        }
+      }catch(e){}
+      const payload=JSON.parse(text);
+      return {id:Number(payload.id)||null,role:String(payload.role||'').toUpperCase()||null};
+    }catch(e){return null}
+  }
+
+  function savedMatchesToken(saved,token){
+    const ident=tokenIdentity(token);
+    if(!ident?.id||!ident?.role)return true;
+    return Number(saved?.user?.id)===Number(ident.id)&&String(saved?.role||'').toUpperCase()===ident.role;
+  }
+
   function migrateOldSession(){
     try{
       if(!localStorage.getItem(SESSION_KEY)&&sessionStorage.getItem(SESSION_KEY)){
@@ -155,25 +181,30 @@
     migrateOldSession();
 
     let saved=savedSession();
-    const token=isDemo?null:(localStorage.getItem(TOKEN_KEY)||sessionStorage.getItem(TOKEN_KEY));
-    const route=savedRoute();
+    /* The current tab/WebView token wins. login() writes the fresh token to
+       sessionStorage first; localStorage is only the reopen fallback. */
+    const token=isDemo?null:(sessionStorage.getItem(TOKEN_KEY)||localStorage.getItem(TOKEN_KEY));
+    let route=savedRoute();
 
     if(!isDemo&&token){
       try{
-        localStorage.setItem(TOKEN_KEY,token);
         sessionStorage.setItem(TOKEN_KEY,token);
+        localStorage.setItem(TOKEN_KEY,token);
       }catch(e){}
     }
 
-    /* Restore the known account immediately. Do not wait for Render/server
-       verification first; a cold start or temporary network failure must not
-       kick a user back to the login screen. */
+    /* Never restore a USER dashboard with a WORKER JWT (or the reverse). That
+       mismatch caused GEMS 403s and disabled the USER-only AI booking agent. */
+    if(!isDemo&&token&&saved&&!savedMatchesToken(saved,token)){
+      clearSaved();
+      saved=null;
+      route=null;
+    }
+
     const restored=Boolean(saved?.user&&saved?.role&&(isDemo||token))&&restoreDashboard(saved,route);
 
     if(isDemo||!token)return;
 
-    /* Verify/update identity in the background. Failure is non-destructive:
-       the remembered login remains until the user explicitly presses Logout. */
     Promise.resolve(window.sevahubPersistentAuthReady)
       .catch(()=>{})
       .then(async()=>{
@@ -185,7 +216,11 @@
           if(!restored)restoreDashboard(fresh,route);
           else{
             const s=safeState();
-            if(s){s.role=me.role;s.user=me;saveSession()}
+            if(s){
+              const changed=Number(s.user?.id)!==Number(me.id)||String(s.role)!==String(me.role);
+              s.role=me.role;s.user=me;saveSession();
+              if(changed){render();if(typeof initLiveChat==='function')initLiveChat();}
+            }
           }
         }catch(e){
           console.warn('Persistent login verification deferred',e);
