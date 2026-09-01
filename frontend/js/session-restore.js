@@ -1,7 +1,8 @@
-/* Persist the logged-in SevaHub dashboard and current interior page across refreshes. */
+/* Persist the logged-in SevaHub dashboard and current interior page across refreshes/app restarts. */
 (function(){
   const SESSION_KEY='sevahub_ui_session_v1';
   const ROUTE_KEY='sevahub_ui_route_v1';
+  const TOKEN_KEY='sevahub_token';
   let restoring=false;
 
   function safeState(){
@@ -11,23 +12,44 @@
   function saveSession(){
     const s=safeState();
     if(!s?.user||!s?.role) return;
-    try{sessionStorage.setItem(SESSION_KEY,JSON.stringify({role:s.role,user:s.user}))}catch(e){}
+    try{localStorage.setItem(SESSION_KEY,JSON.stringify({role:s.role,user:s.user}))}catch(e){}
   }
 
   function clearSaved(){
     try{
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(ROUTE_KEY);
       sessionStorage.removeItem(SESSION_KEY);
       sessionStorage.removeItem(ROUTE_KEY);
     }catch(e){}
   }
 
+  function clearAuth(){
+    clearSaved();
+    try{
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }catch(e){}
+  }
+
   function saveRoute(route){
     if(restoring||!route) return;
-    try{sessionStorage.setItem(ROUTE_KEY,JSON.stringify(route))}catch(e){}
+    try{localStorage.setItem(ROUTE_KEY,JSON.stringify(route))}catch(e){}
   }
 
   function savedRoute(){
-    try{return JSON.parse(sessionStorage.getItem(ROUTE_KEY)||'null')}catch(e){return null}
+    try{return JSON.parse(localStorage.getItem(ROUTE_KEY)||'null')}catch(e){return null}
+  }
+
+  function migrateOldSession(){
+    try{
+      if(!localStorage.getItem(SESSION_KEY)&&sessionStorage.getItem(SESSION_KEY)){
+        localStorage.setItem(SESSION_KEY,sessionStorage.getItem(SESSION_KEY));
+      }
+      if(!localStorage.getItem(ROUTE_KEY)&&sessionStorage.getItem(ROUTE_KEY)){
+        localStorage.setItem(ROUTE_KEY,sessionStorage.getItem(ROUTE_KEY));
+      }
+    }catch(e){}
   }
 
   function wrap(name,routeBuilder){
@@ -67,7 +89,7 @@
     const originalLogout=globalThis.logout;
     if(typeof originalLogout==='function'){
       globalThis.logout=function(...args){
-        clearSaved();
+        clearAuth();
         return originalLogout.apply(this,args);
       };
     }
@@ -99,14 +121,27 @@
     }
   }
 
-  function restoreSession(){
+  async function restoreSession(){
+    migrateOldSession();
+    try{await window.sevahubPersistentAuthReady}catch(e){}
+
     let saved;
-    try{saved=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null')}catch(e){saved=null}
+    try{saved=JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(e){saved=null}
     if(!saved?.user||!saved?.role) return;
 
-    if(!isDemo&&!sessionStorage.getItem('sevahub_token')){
-      clearSaved();
-      return;
+    if(!isDemo){
+      const token=sessionStorage.getItem(TOKEN_KEY)||localStorage.getItem(TOKEN_KEY);
+      if(!token){clearAuth();return;}
+      try{
+        if(!sessionStorage.getItem(TOKEN_KEY))sessionStorage.setItem(TOKEN_KEY,token);
+        const me=(await api('/auth/me')).data;
+        if(!me?.id||!me?.role)throw new Error('Invalid account session');
+        saved={role:me.role,user:me};
+        localStorage.setItem(SESSION_KEY,JSON.stringify(saved));
+      }catch(e){
+        clearAuth();
+        return;
+      }
     }
 
     const route=savedRoute();
@@ -134,7 +169,7 @@
 
   document.addEventListener('click',e=>{
     const el=e.target.closest('[onclick]');
-    if(el&&String(el.getAttribute('onclick')||'').includes('logout()')) clearSaved();
+    if(el&&String(el.getAttribute('onclick')||'').includes('logout()')) clearAuth();
   },true);
 
   /* The route wrappers above already know the exact nested page. Do not replace
