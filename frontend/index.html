@@ -6,41 +6,56 @@
 <title>SevaHub – Service Marketplace</title>
 <meta name="description" content="SevaHub cooperative household and community gig services platform">
 <meta name="theme-color" content="#b95417">
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/responsive.css">
-<link rel="stylesheet" href="css/auth-home.css">
-<link rel="stylesheet" href="css/auth-service-carousel.css">
-<link rel="stylesheet" href="css/dashboard-ui.css">
-<link rel="stylesheet" href="css/location-ui.css">
-<link rel="stylesheet" href="css/activity-report.css">
-<link rel="stylesheet" href="css/notifications-ui.css">
-<link rel="stylesheet" href="css/bargain-actions.css">
-<link rel="stylesheet" href="css/mobile-app-extras.css">
-<link rel="stylesheet" href="css/profile-menu.css">
-<link rel="stylesheet" href="css/worker-reviews-chat.css">
+<script>
+try{
+  const k='sevahub_ui_route_v1';
+  const r=JSON.parse(localStorage.getItem(k)||'null');
+  if(r&&String(r.view||'').includes('support')) localStorage.removeItem(k);
+}catch(e){try{localStorage.removeItem('sevahub_ui_route_v1')}catch(_){} }
+</script>
+<link rel="stylesheet" href="css/style.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/responsive.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/auth-home.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/auth-service-carousel.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/dashboard-ui.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/location-ui.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/activity-report.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/notifications-ui.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/bargain-actions.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/mobile-app-extras.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/profile-menu.css?v=20260901-recovery1">
+<link rel="stylesheet" href="css/worker-reviews-chat.css?v=20260901-recovery1">
 </head>
 <body>
 <div id="app" class="app"></div>
-<script src="/socket.io/socket.io.js"></script>
+<script src="/socket.io/socket.io.js?v=20260901-recovery1"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="js/app.js"></script>
-<script src="js/persistent-login.js?v=20260901c"></script>
-<script src="js/worker-reviews-chat.js"></script>
-<script src="js/review-ui.js"></script>
-<script src="js/payment-ui.js"></script>
-<script src="js/location-ui.js"></script>
-<script src="js/phone-location-permission.js"></script>
-<script src="js/worker-customer-details.js"></script>
-<script src="js/auth-home.js?v=20260901-reset2"></script>
-<script src="js/auth-service-carousel.js"></script>
-<script src="js/platform-language-worker-ai.js?v=20260901a"></script>
-<script src="js/ai-booking-agent-ui.js?v=20260901a"></script>
-<script src="js/history-nav.js"></script>
-<script src="js/session-restore.js?v=20260901c"></script>
-<script src="js/activity-report.js"></script>
-<script src="js/notifications-ui.js"></script>
-<script src="js/notification-links.js"></script>
-<script src="js/popular-services-brand.js?v=20260901-lang2"></script>
-<script src="js/profile-menu.js"></script>
+<script src="js/app.js?v=20260901-recovery1"></script>
+<script src="js/persistent-login.js?v=20260901-recovery1"></script>
+<script src="js/worker-reviews-chat.js?v=20260901-recovery1"></script>
+<script src="js/review-ui.js?v=20260901-recovery1"></script>
+<script src="js/payment-ui.js?v=20260901-recovery1"></script>
+<script src="js/location-ui.js?v=20260901-recovery1"></script>
+<script src="js/phone-location-permission.js?v=20260901-recovery1"></script>
+<script src="js/worker-customer-details.js?v=20260901-recovery1"></script>
+<script src="js/auth-home.js?v=20260901-recovery1"></script>
+<script src="js/auth-service-carousel.js?v=20260901-recovery1"></script>
+<script src="js/platform-language-worker-ai.js?v=20260901-recovery1"></script>
+<script src="js/ai-booking-agent-ui.js?v=20260901-recovery1"></script>
+<script src="js/history-nav.js?v=20260901-recovery1"></script>
+<script src="js/session-restore.js?v=20260901-recovery1"></script>
+<script src="js/activity-report.js?v=20260901-recovery1"></script>
+<script src="js/notifications-ui.js?v=20260901-recovery1"></script>
+<script src="js/notification-links.js?v=20260901-recovery1"></script>
+<script src="js/popular-services-brand.js?v=20260901-recovery1"></script>
+<script src="js/profile-menu.js?v=20260901-recovery1"></script>
+<script>
+setTimeout(()=>{
+  try{
+    const app=document.getElementById('app');
+    if(app&&!app.innerHTML.trim()&&typeof render==='function') render();
+  }catch(e){console.error('SevaHub recovery render failed',e)}
+},1200);
+</script>
 </body>
 </html>
