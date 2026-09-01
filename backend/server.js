@@ -13,7 +13,19 @@ app.set('io',io);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({extended:true}));
-app.use(express.static(path.join(__dirname,'../frontend')));
+
+/* Keep API responses normal, but force browsers/WebViews to re-check frontend
+   files while recovering from an older cached dashboard build. This does not
+   clear localStorage, so remembered login is preserved. */
+app.use((req,res,next)=>{
+  if(!req.path.startsWith('/api/') && !req.path.startsWith('/socket.io/')){
+    res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma','no-cache');
+    res.set('Expires','0');
+  }
+  next();
+});
+app.use(express.static(path.join(__dirname,'../frontend'),{etag:false,lastModified:false,maxAge:0}));
 
 io.on('connection',socket=>{
   socket.on('join-user-room',userId=>{
