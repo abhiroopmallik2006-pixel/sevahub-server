@@ -1,6 +1,7 @@
 const express=require('express');
 const pool=require('../config');
 const {auth}=require('../middleware/auth');
+const {reply}=require('../services/aiProvider');
 
 const router=express.Router();
 const CATEGORIES=new Set(['BOOKING','PAYMENT','BARGAINING','LOCATION','ACCOUNT','SAFETY','TECHNICAL','OTHER']);
@@ -49,6 +50,26 @@ async function canReferenceBooking(req,bookingId){
   return false;
 }
 
+async function supportBookingContext(req,bookingId){
+  if(!bookingId)return null;
+  if(!(await canReferenceBooking(req,bookingId)))return null;
+  const userSql=`
+    SELECT b.id,b.status,b.booking_date,b.booking_time,b.payment_method,b.original_price,b.final_price,s.name service_name
+    FROM bookings b
+    JOIN services s ON s.id=b.service_id
+    WHERE b.id=? AND b.user_id=?
+    LIMIT 1`;
+  const workerSql=`
+    SELECT b.id,b.status,b.booking_date,b.booking_time,b.payment_method,b.original_price,b.final_price,s.name service_name
+    FROM bookings b
+    JOIN workers w ON w.id=b.worker_id
+    JOIN services s ON s.id=b.service_id
+    WHERE b.id=? AND w.user_id=?
+    LIMIT 1`;
+  const [rows]=await pool.query(req.user.role==='WORKER'?workerSql:userSql,[bookingId,req.user.id]);
+  return rows[0]||null;
+}
+
 router.get('/my',auth,async(req,res,next)=>{
   try{
     await ensureTable();
@@ -59,6 +80,46 @@ router.get('/my',auth,async(req,res,next)=>{
       ORDER BY created_at DESC
       LIMIT 50`,[req.user.id,req.user.role]);
     res.json({success:true,data:rows});
+  }catch(e){next(e)}
+});
+
+/* Support-specific AI endpoint. It deliberately bypasses the booking-agent state
+   machine so a support question such as "booking payment issue" cannot start a
+   new booking by accident. No polling/background calls: it runs only when the
+   user presses Ask AI in Support Center. */
+router.post('/ai',auth,async(req,res,next)=>{
+  try{
+    await ensureTable();
+    const message=String(req.body.message||'').trim();
+    const bookingIdRaw=req.body.bookingId;
+    const bookingId=bookingIdRaw===undefined||bookingIdRaw===null||String(bookingIdRaw).trim()===''?null:Number(bookingIdRaw);
+    if(!message||message.length>1600)return res.status(400).json({success:false,message:'Enter a support question up to 1,600 characters'});
+    if(bookingId!==null&&(!Number.isInteger(bookingId)||bookingId<=0))return res.status(400).json({success:false,message:'Enter a valid booking number'});
+    if(bookingId!==null&&!(await canReferenceBooking(req,bookingId)))return res.status(403).json({success:false,message:'That booking is not linked to your account'});
+
+    const [recentTickets]=await pool.query(`
+      SELECT category,subject,status,booking_id,created_at
+      FROM support_tickets
+      WHERE user_id=? AND role=?
+      ORDER BY created_at DESC
+      LIMIT 5`,[req.user.id,req.user.role]);
+    const booking=await supportBookingContext(req,bookingId);
+
+    const supportPrompt=`You are SevaHub Support AI. Help the ${req.user.role==='WORKER'?'worker':'customer'} troubleshoot or understand this support issue. Be concise, practical and specific to SevaHub. Do not ask for passwords, OTPs, UPI PINs, card PINs or other secrets. Never claim that a payment, refund, booking change, account change or ticket resolution has happened unless the supplied context explicitly says so. If the issue needs human/platform action, tell the user to submit a support ticket using the form on this page. For immediate personal-safety danger, advise contacting local emergency help and a trusted person. User message: ${message}`;
+
+    const text=await reply({
+      message:supportPrompt,
+      context:{
+        mode:'SUPPORT',
+        role:req.user.role,
+        booking,
+        recentSupportTickets:recentTickets,
+        platform:{name:'SevaHub',currency:'INR',supportCategories:[...CATEGORIES]},
+        sessionId:`support-${req.user.id}`,
+        userId:String(req.user.id)
+      }
+    });
+    res.json({success:true,data:{message:text}});
   }catch(e){next(e)}
 });
 
