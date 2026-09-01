@@ -1,5 +1,5 @@
-/* Adds a lightweight AI-booking entry point to the User AI panel.
-   No MutationObserver: enhancement runs only when the AI panel is opened. */
+/* Lightweight AI-booking entry point for the User AI panel.
+   No background observer: enhancement runs only when the AI panel is opened. */
 (function(){
   const original=globalThis.userAI;
   if(typeof original!=='function'||original.__sevahubAIBookingWrapped)return;
@@ -11,15 +11,37 @@
   function copy(){
     return isHindi()?{
       desc:'अपनी समस्या सामान्य भाषा में बताइए। AI सही service पहचान सकता है, available workers दिखा सकता है, worker चुनवा सकता है, date/time/location और bargaining पूछकर booking अपने-आप बना सकता है।',
-      chip:'🪚 AI से booking करवाएँ',
-      initial:'<b>नमस्ते! 👋</b><br>समस्या बताइए — जैसे <i>“मेरा bed खराब है”</i>। मैं service पहचानकर workers की list दूँगा और पूरी booking chat में करवा दूँगा।',
+      chip:'🪚 AI से booking शुरू करें',
+      initial:'<b>नमस्ते! 👋</b><br>अपनी समस्या बताइए — जैसे <i>“मेरा bed खराब है”</i>। मैं service पहचानकर available workers दिखाऊँगा, फिर worker, date, time, location और bargaining पूछकर booking बना दूँगा।',
       disclaimer:'AI booking तभी बनाता है जब worker, date, time, location और bargaining choice मिल जाए। Bargain होने पर worker Accept/Reject/Counter कर सकता है.'
     }:{
-      desc:'Describe your problem normally. I can identify the service, show available workers, collect worker/date/time/location and bargaining details, then create the booking automatically.',
-      chip:'🪚 Book through AI',
-      initial:'<b>Hi! 👋</b><br>Tell me the problem — for example <i>“Mera bed kharab hai”</i>. I’ll identify the service, show workers, collect the details and create the booking in chat.',
+      desc:'Describe your problem normally. I can identify the service, show available workers, ask you to choose one, collect date/time/location and bargaining, then create the booking automatically.',
+      chip:'🪚 Start AI booking',
+      initial:'<b>Hi! 👋</b><br>Tell me the problem — for example <i>“Mera bed kharab hai”</i>. I’ll identify the service, show available workers, then ask for worker, date, time, location and bargaining before creating the booking.',
       disclaimer:'AI creates the booking only after worker, date, time, location and bargaining choice are provided. If you bargain, the worker can Accept, Reject or Counter.'
     };
+  }
+
+  function sendPrompt(prompt){
+    const input=document.getElementById('aiInput');
+    if(!input)return false;
+    input.value=prompt;
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+
+    const form=input.closest('form');
+    if(form){
+      if(typeof form.requestSubmit==='function')form.requestSubmit();
+      else form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+      return true;
+    }
+
+    /* Fallback for older panel markup. */
+    if(typeof globalThis.aiChat==='function'){
+      globalThis.aiChat({preventDefault(){}});
+      return true;
+    }
+    input.focus();
+    return false;
   }
 
   function enhance(){
@@ -41,11 +63,8 @@
         btn.className='ai-chip';
         btn.textContent=c.chip;
         btn.addEventListener('click',()=>{
-          if(typeof globalThis.useAIPrompt==='function')globalThis.useAIPrompt('Mera bed kharab hai, booking karwa do.');
-          else{
-            const input=document.getElementById('aiInput');
-            if(input){input.value='Mera bed kharab hai, booking karwa do.';input.focus();}
-          }
+          const ok=sendPrompt('Mera bed kharab hai, booking karwa do.');
+          if(!ok&&typeof toast==='function')toast('Type your problem and press Send to start AI booking.');
         });
         prompts.prepend(btn);
       }
