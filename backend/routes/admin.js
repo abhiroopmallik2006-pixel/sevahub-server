@@ -53,8 +53,7 @@ async function ensureSupportMessages(){
       sender_user_id BIGINT NULL,
       message TEXT NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_support_messages_ticket (ticket_id, created_at),
-      CONSTRAINT fk_support_messages_ticket FOREIGN KEY (ticket_id) REFERENCES support_tickets(id) ON DELETE CASCADE
+      INDEX idx_support_messages_ticket (ticket_id, created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   return true;
@@ -77,7 +76,7 @@ router.get('/summary',adminAuth,async(req,res,next)=>{try{
   const [[usersCount],[workersCount],[bookingsCount],[completedCount],[pendingWorkers]] = await Promise.all([
     pool.query("SELECT COUNT(*) total FROM users WHERE role='USER'"),
     pool.query('SELECT COUNT(*) total FROM workers'),
-    pool.query('SELECT COUNT(*) total FROM bookings'),
+    pool.query("SELECT COUNT(*) total FROM bookings"),
     pool.query("SELECT COUNT(*) total FROM bookings WHERE status='COMPLETED'"),
     pool.query("SELECT COUNT(*) total FROM workers WHERE UPPER(COALESCE(verification_status,'PENDING'))='PENDING'")
   ]);
