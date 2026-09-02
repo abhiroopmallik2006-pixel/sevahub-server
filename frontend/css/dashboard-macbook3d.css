@@ -1,0 +1,158 @@
+/* SevaHub 3D MacBook tab experience.
+   Additive UI only - no booking/auth/AI/support logic is changed. */
+.sevahub-macbook3d-section{
+  display:grid;
+  grid-template-columns:minmax(240px,.8fr) minmax(320px,1.2fr);
+  gap:28px;
+  align-items:center;
+  margin:0 0 30px;
+  padding:30px 4px 18px;
+  min-height:360px;
+  perspective:1200px;
+  --mac-progress:0;
+}
+.sevahub-macbook3d-copy{padding-left:4px}
+.sevahub-macbook3d-kicker{
+  display:inline-flex;
+  padding:7px 12px;
+  border:1px solid rgba(185,84,23,.25);
+  border-radius:999px;
+  background:rgba(255,248,241,.72);
+  color:#9a4318;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:1.35px;
+}
+.sevahub-macbook3d-copy h3{
+  font-size:clamp(28px,3.8vw,46px);
+  line-height:1.05;
+  letter-spacing:-1.6px;
+  margin:10px 0;
+  color:#2d211d;
+}
+.sevahub-macbook3d-copy p{
+  max-width:500px;
+  margin:0;
+  color:#756a64;
+  line-height:1.7;
+  font-size:14px;
+}
+.sevahub-macbook3d{
+  position:relative;
+  width:min(100%,650px);
+  margin:auto;
+  transform-style:preserve-3d;
+  transform-origin:center bottom;
+  will-change:transform;
+}
+.sevahub-macbook3d-screen{
+  position:relative;
+  z-index:2;
+  background:#111;
+  border:7px solid #222;
+  border-radius:18px 18px 10px 10px;
+  box-shadow:0 22px 50px rgba(30,20,15,.28);
+  overflow:hidden;
+  aspect-ratio:16/10;
+}
+.sevahub-macbook3d-notch{
+  position:absolute;
+  z-index:5;
+  top:8px;
+  left:50%;
+  transform:translateX(-50%);
+  width:70px;
+  height:8px;
+  border-radius:0 0 8px 8px;
+  background:#222;
+}
+.sevahub-macbook3d-screenbar{
+  height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 13px;
+  background:#f3eee9;
+  color:#2b211d;
+  font-size:10px;
+}
+.sevahub-macbook3d-screenbar b{font-size:11px;letter-spacing:.08em}
+.sevahub-macbook3d-screenbar span{opacity:.62}
+.sevahub-macbook3d-screenbody{
+  height:calc(100% - 34px);
+  padding:24px;
+  background:linear-gradient(145deg,#fff8f1,#f0e6dc);
+}
+.sevahub-mac-line{height:10px;width:58%;margin-bottom:10px;border-radius:99px;background:#c9b6a7}
+.sevahub-mac-line.lg{height:18px;width:76%;background:#3d2b23}
+.sevahub-mac-line.sm{width:38%;height:8px}
+.sevahub-mac-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+.sevahub-mac-grid i{
+  display:block;
+  height:82px;
+  border-radius:12px;
+  background:linear-gradient(135deg,#d89a63,#6e4430);
+  box-shadow:inset 0 1px rgba(255,255,255,.4),0 9px 18px rgba(80,42,24,.12);
+}
+.sevahub-mac-grid i:nth-child(2){transform:translateY(7px)}
+.sevahub-mac-grid i:nth-child(3){transform:translateY(2px)}
+.sevahub-macbook3d-base{
+  position:relative;
+  z-index:1;
+  width:112%;
+  height:22px;
+  margin-left:-6%;
+  background:linear-gradient(#d8d1cc,#9f9995);
+  border-radius:0 0 20px 20px;
+  box-shadow:0 18px 25px rgba(25,18,14,.18);
+}
+.sevahub-macbook3d-base span{display:block;width:25%;height:5px;margin:0 auto;background:#817a76;border-radius:0 0 8px 8px}
+
+/* Gentle pointer tilt for cards inside the currently-open dashboard tab. */
+.sevahub-fx-3d-card{
+  --sevahub-rx:0deg;
+  --sevahub-ry:0deg;
+  transform:perspective(900px) rotateX(var(--sevahub-rx)) rotateY(var(--sevahub-ry)) translateZ(0);
+  transform-style:preserve-3d;
+  transition:transform .16s ease,box-shadow .25s ease;
+  will-change:transform;
+  position:relative;
+}
+.sevahub-fx-3d-card::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  border-radius:inherit;
+  background:radial-gradient(circle at 50% 0%,rgba(255,255,255,.2),transparent 42%);
+  opacity:0;
+  transition:opacity .25s ease;
+}
+.sevahub-fx-3d-card:hover{box-shadow:0 24px 55px rgba(63,35,22,.2)!important}
+.sevahub-fx-3d-card:hover::after{opacity:1}
+
+.dark .sevahub-macbook3d-copy h3,body.dark .sevahub-macbook3d-copy h3{color:#f5eee9}
+.dark .sevahub-macbook3d-copy p,body.dark .sevahub-macbook3d-copy p{color:#aaa19b}
+.dark .sevahub-macbook3d-kicker,body.dark .sevahub-macbook3d-kicker{background:#171310;border-color:#49352b;color:#ffb36a}
+.dark .sevahub-macbook3d-screenbar,body.dark .sevahub-macbook3d-screenbar{background:#191716;color:#f5eee9}
+.dark .sevahub-macbook3d-screenbody,body.dark .sevahub-macbook3d-screenbody{background:linear-gradient(145deg,#15110f,#25201c)}
+.dark .sevahub-mac-line,body.dark .sevahub-mac-line{background:#55483f}
+.dark .sevahub-mac-line.lg,body.dark .sevahub-mac-line.lg{background:#eee5de}
+.dark .sevahub-macbook3d-base,body.dark .sevahub-macbook3d-base{background:linear-gradient(#716b68,#3e3a38)}
+
+@media(max-width:800px){
+  .sevahub-macbook3d-section{grid-template-columns:1fr;min-height:0;padding-top:20px}
+  .sevahub-macbook3d-copy{text-align:center;padding-left:0}
+  .sevahub-macbook3d-copy p{margin-left:auto;margin-right:auto}
+  .sevahub-macbook3d{width:min(100%,600px)}
+}
+@media(max-width:520px){
+  .sevahub-macbook3d-section{gap:16px;margin-bottom:20px;padding-left:0;padding-right:0}
+  .sevahub-macbook3d-screen{border-width:5px;border-radius:12px 12px 8px 8px}
+  .sevahub-macbook3d-screenbody{padding:16px}
+  .sevahub-mac-grid i{height:58px}
+  .sevahub-fx-3d-card:hover{box-shadow:inherit!important}
+}
+@media (prefers-reduced-motion:reduce){
+  .sevahub-macbook3d,.sevahub-fx-3d-card{transform:none!important;transition:none!important}
+}
