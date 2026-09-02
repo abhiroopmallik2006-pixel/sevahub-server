@@ -74,8 +74,8 @@ function localRecommendations(data){
   }else if(services.some(x=>x.forecastNext7>0)){
     lines.push('Current verified workforce capacity is sufficient for the forecasted service demand.');
   }
-  if(data.peak?.dayLabel||data.peak?.hourLabel){
-    lines.push(`Peak demand is ${data.peak.dayLabel||'not yet clear'} around ${data.peak.hourLabel||'the current observed peak window'}; keep verified workers available near that period.`);
+  if(data.peak?.dayLabel&&data.peak.dayLabel!=='No data'&&data.peak?.hourLabel&&data.peak.hourLabel!=='No data'){
+    lines.push(`Peak demand is ${data.peak.dayLabel} around ${data.peak.hourLabel}; keep verified workers available near that period.`);
   }
   if(data.areas?.[0]?.area&&data.areas[0].area!=='Unknown'){
     lines.push(`${data.areas[0].area} is the strongest observed booking area, led by ${data.areas[0].topService||'mixed services'}.`);
@@ -138,7 +138,7 @@ router.get('/',adminAuth,async(req,res,next)=>{try{
       UPPER(COALESCE(w.verification_status,'PENDING')) verification_status,
       CASE WHEN EXISTS(
         SELECT 1 FROM bookings ab
-        WHERE ab.worker_id=w.id AND ab.status IN ('ACCEPTED','IN_PROGRESS')
+        WHERE ab.worker_id=w.id AND (ab.status='IN_PROGRESS' OR (ab.status='ACCEPTED' AND ab.booking_date=CURDATE()))
       ) THEN 1 ELSE 0 END active_now
     FROM worker_services ws
     JOIN services s ON s.id=ws.service_id
@@ -199,7 +199,7 @@ router.get('/',adminAuth,async(req,res,next)=>{try{
     const observedWeeklyCapacity=service.completedLast28>0&&completedWorkers>0
       ? service.completedLast28/completedWorkers/4
       : 4;
-    const weeklyCapacity=clamp(rounded(observedWeeklyCapacity)||4,2,8);
+    const weeklyCapacity=clamp(rounded(observedWeeklyCapacity)||4,1,8);
     const verifiedWorkers=service.verifiedWorkerIds.size;
     const availableWorkers=service.availableWorkerIds.size;
     const recommendedWorkers=forecast>0?Math.ceil(forecast/weeklyCapacity):0;
@@ -257,7 +257,7 @@ router.get('/',adminAuth,async(req,res,next)=>{try{
     methodology:{
       forecast:'Weighted 7-day trend: 55% latest week + 25% previous week + 20% 28-day weekly baseline.',
       workforce:'Recommended workers use observed completed jobs per worker per week; when history is sparse the planning fallback is 4 jobs per worker per week.',
-      availability:"A verified worker is counted as available when they have no ACCEPTED or IN_PROGRESS booking right now."
+      availability:"A verified worker is counted as available when they have no IN_PROGRESS job and no ACCEPTED booking scheduled for today."
     }
   };
 
