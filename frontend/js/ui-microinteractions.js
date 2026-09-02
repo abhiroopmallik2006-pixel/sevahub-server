@@ -4,6 +4,7 @@
   const reduced=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   const seen=new WeakSet();
   const statValues=new WeakMap();
+  const animatingStats=new WeakSet();
 
   function markReveal(root=document){
     if(reduced())return;
@@ -39,33 +40,37 @@
   }
 
   function animateStat(el){
-    if(reduced()||!el?.isConnected)return;
+    if(reduced()||!el?.isConnected||animatingStats.has(el))return;
     const parsed=parseNumeric(el.textContent);
     if(!parsed||!Number.isFinite(parsed.value))return;
     const previous=statValues.get(el);
-    statValues.set(el,parsed.value);
-    if(previous===undefined||previous===parsed.value)return;
+    if(previous===undefined){statValues.set(el,parsed.value);return;}
+    if(previous===parsed.value)return;
+
     const start=performance.now();
     const duration=380;
     const from=Number(previous);
     const to=parsed.value;
+    animatingStats.add(el);
+
     function frame(now){
-      if(!el.isConnected)return;
+      if(!el.isConnected){animatingStats.delete(el);return;}
       const p=Math.min(1,(now-start)/duration);
       const eased=1-Math.pow(1-p,3);
       const value=from+(to-from)*eased;
       el.textContent=parsed.prefix+value.toLocaleString('en-IN',{minimumFractionDigits:parsed.decimals,maximumFractionDigits:parsed.decimals})+parsed.suffix;
-      if(p<1)requestAnimationFrame(frame);
+      if(p<1){requestAnimationFrame(frame);return;}
+      statValues.set(el,to);
+      requestAnimationFrame(()=>animatingStats.delete(el));
     }
     requestAnimationFrame(frame);
   }
 
   function syncStats(root=document){
     root.querySelectorAll?.('.stats .stat b').forEach(el=>{
-      if(!statValues.has(el)){
-        const p=parseNumeric(el.textContent);
-        if(p)statValues.set(el,p.value);
-      }
+      if(animatingStats.has(el)||statValues.has(el))return;
+      const p=parseNumeric(el.textContent);
+      if(p)statValues.set(el,p.value);
     });
   }
 
@@ -93,10 +98,10 @@
     for(const mutation of mutations){
       if(mutation.type==='characterData'){
         const parent=mutation.target.parentElement;
-        if(parent?.matches?.('.stats .stat b'))animateStat(parent);
+        if(parent?.matches?.('.stats .stat b')&&!animatingStats.has(parent))animateStat(parent);
       }
       if(mutation.type==='childList'){
-        if(mutation.target?.matches?.('.stats .stat b'))animateStat(mutation.target);
+        if(mutation.target?.matches?.('.stats .stat b')&&!animatingStats.has(mutation.target))animateStat(mutation.target);
         refreshNeeded=true;
       }
     }
