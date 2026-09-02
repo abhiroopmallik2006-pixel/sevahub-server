@@ -1,0 +1,40 @@
+/* Four selectable dashboard backgrounds. Scoped to logged-in dashboard only. */
+.sev-dashboard-bg-active #app{position:relative;z-index:1}
+.sev-dashboard-bg-layer{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#fff8f2}
+.sev-dashboard-bg-layer::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:rgba(255,248,242,.76)}
+.sev-dashboard-bg-canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+.sev-dashboard-bg-controls{position:fixed;right:24px;top:82px;z-index:1400;font-family:inherit}
+.sev-dashboard-bg-toggle{border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:11px 15px;background:rgba(56,43,38,.94);color:#ffd0a3;font-weight:800;box-shadow:0 12px 30px rgba(30,15,8,.2);backdrop-filter:blur(14px);cursor:pointer;transition:transform .18s ease,background .18s ease}
+.sev-dashboard-bg-toggle:hover{transform:translateY(-1px);background:#4c382f}
+.sev-dashboard-bg-menu{display:none;position:absolute;right:0;top:48px;width:255px;padding:8px;border:1px solid rgba(255,255,255,.16);border-radius:18px;background:rgba(40,30,27,.97);box-shadow:0 20px 45px rgba(0,0,0,.25);backdrop-filter:blur(18px)}
+.sev-dashboard-bg-menu.open{display:block}
+.sev-dashboard-bg-option{width:100%;display:flex;align-items:center;gap:10px;padding:9px;border:0;border-radius:12px;background:transparent;color:#f6eee9;text-align:left;cursor:pointer;font-weight:700;box-shadow:none;text-shadow:none;transform:none}
+.sev-dashboard-bg-option:hover,.sev-dashboard-bg-option.active{background:rgba(255,255,255,.1);transform:none;box-shadow:none}
+.sev-dashboard-bg-option b{margin-left:auto;color:#ffb56f}
+.sev-bg-option-preview{width:38px;height:30px;border-radius:8px;display:block;flex:0 0 auto;border:1px solid rgba(255,255,255,.18);overflow:hidden}
+.sev-bg-vortex{background:radial-gradient(circle,#72d572 0 2%,transparent 3% 10%,rgba(78,180,93,.6) 11%,transparent 35%),#06100b}
+.sev-bg-wavy{background:linear-gradient(165deg,#24170e 15%,#d87500 18% 23%,#26150d 25% 40%,#e78b35 42% 47%,#20140f 49%)}
+.sev-bg-stars{background:radial-gradient(circle at 20% 35%,white 0 1px,transparent 2px),radial-gradient(circle at 70% 70%,white 0 1px,transparent 2px),#070b18}
+.sev-bg-grid{background-image:radial-gradient(#b95417 1px,transparent 1px),linear-gradient(#ddd 1px,transparent 1px),linear-gradient(90deg,#ddd 1px,transparent 1px);background-size:12px 12px,12px 12px,12px 12px}
+
+.sev-dashboard-bg-vortex{background:#07110b}.sev-dashboard-bg-vortex::after{background:rgba(245,250,245,.88)}
+.sev-dashboard-bg-wavy{background:#1a100b}.sev-dashboard-bg-wavy::after{background:rgba(255,247,239,.76)}
+.sev-dashboard-bg-stars{background:#060914}.sev-dashboard-bg-stars::after{background:rgba(249,249,255,.82)}
+.sev-dashboard-bg-grid{background:#fff}.sev-dashboard-bg-grid::after{background:rgba(255,255,255,.62)}
+.sev-dashboard-bg-grid-lines{position:absolute;inset:0;background-size:40px 40px;background-image:linear-gradient(to right,#e4e4e7 1px,transparent 1px),linear-gradient(to bottom,#e4e4e7 1px,transparent 1px)}
+.sev-dashboard-bg-grid-fade{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 10%,rgba(255,255,255,.92) 78%)}
+.sev-dashboard-bg-dots{position:absolute;inset:0;background-image:radial-gradient(#c9b6a7 1px,transparent 1px);background-size:24px 24px;opacity:.35}
+
+body.dark .sev-dashboard-bg-layer{background:#07090c}
+body.dark .sev-dashboard-bg-layer::after{background:rgba(7,9,12,.74)}
+body.dark .sev-dashboard-bg-vortex::after{background:rgba(7,16,11,.70)}
+body.dark .sev-dashboard-bg-wavy::after{background:rgba(20,12,9,.68)}
+body.dark .sev-dashboard-bg-stars::after{background:rgba(5,8,18,.66)}
+body.dark .sev-dashboard-bg-grid::after{background:rgba(7,9,12,.68)}
+body.dark .sev-dashboard-bg-grid-lines{background-image:linear-gradient(to right,#262626 1px,transparent 1px),linear-gradient(to bottom,#262626 1px,transparent 1px)}
+body.dark .sev-dashboard-bg-grid-fade{background:radial-gradient(ellipse at center,transparent 10%,rgba(7,9,12,.9) 78%)}
+body.dark .sev-dashboard-bg-dots{background-image:radial-gradient(#555 1px,transparent 1px);opacity:.25}
+
+@media(max-width:700px){.sev-dashboard-bg-controls{right:12px;top:72px}.sev-dashboard-bg-toggle{font-size:12px;padding:9px 11px}.sev-dashboard-bg-menu{width:225px}}
+@media(prefers-reduced-motion:reduce){.sev-dashboard-bg-toggle{transition:none}}
