@@ -12,6 +12,7 @@
   let raf=0;
   let resizeHandler=null;
   let scanScheduled=false;
+  let appliedType=null;
 
   const copy={
     en:{
@@ -159,6 +160,7 @@
     stopAnimation();
     layer.className=`sev-dashboard-bg-layer sev-dashboard-bg-${type}`;
     layer.innerHTML='';
+    appliedType=type;
     if(type==='grid'){
       layer.innerHTML='<div class="sev-dashboard-bg-grid-lines"></div><div class="sev-dashboard-bg-grid-fade"></div><div class="sev-dashboard-bg-dots"></div>';
     }else if(type==='vortex')runVortex(layer);
@@ -212,15 +214,18 @@
   function mount(){
     if(!document.querySelector('main.dashboard'))return unmount();
     document.body.classList.add('sev-dashboard-bg-active');
+    const current=savedType();
+    const firstMount=!layer;
     if(!layer){layer=document.createElement('div');layer.setAttribute('aria-hidden','true');document.body.appendChild(layer)}
     if(!controls){controls=createControls();document.body.appendChild(controls)}
-    apply(savedType());
+    if(firstMount||appliedType!==current)apply(current);else updateControl();
   }
 
   function unmount(){
     stopAnimation();
     layer?.remove();layer=null;
     controls?.remove();controls=null;
+    appliedType=null;
     document.body.classList.remove('sev-dashboard-bg-active');
   }
 
