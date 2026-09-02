@@ -1,0 +1,17 @@
+/* SevaHub lightweight motion + graphics layer. */
+.sev-reveal{opacity:0;transform:translateY(10px) scale(.995);transition:opacity .42s ease,transform .42s cubic-bezier(.2,.8,.2,1);transition-delay:var(--sev-delay,0ms)}
+.sev-reveal.sev-reveal-in{opacity:1;transform:none}
+.btn,button{position:relative;overflow:hidden}
+.sev-ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.32);transform:scale(0);pointer-events:none;animation:sevRipple .48s ease-out}
+@keyframes sevRipple{to{transform:scale(2.3);opacity:0}}
+.sev-service-icon{position:relative;display:inline-grid;place-items:center;isolation:isolate}
+.sev-service-icon::before{content:"";position:absolute;inset:-8px;border-radius:50%;background:radial-gradient(circle,rgba(255,153,76,.24),rgba(255,153,76,.06) 55%,transparent 70%);z-index:-1;animation:sevIconGlow 3.2s ease-in-out infinite}
+@keyframes sevIconGlow{0%,100%{transform:scale(.94);opacity:.65}50%{transform:scale(1.08);opacity:1}}
+.dashboard .stat{transition:transform .22s ease,box-shadow .22s ease,filter .22s ease}
+.dashboard .stat:hover{transform:translateY(-3px)!important;filter:saturate(1.04)}
+.dashboard #userContent .card,.dashboard #workerContent .card,.dashboard #userContent .offer,.dashboard #workerContent .offer{transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.dashboard #userContent .card:hover,.dashboard #workerContent .card:hover,.dashboard #userContent .offer:hover,.dashboard #workerContent .offer:hover{transform:translateY(-2px)}
+.dashboard::before{content:"";position:fixed;width:240px;height:240px;right:-90px;top:18%;border-radius:50%;background:radial-gradient(circle,rgba(242,126,48,.10),transparent 70%);pointer-events:none;z-index:0;animation:sevFloatOrb 8s ease-in-out infinite}
+@keyframes sevFloatOrb{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(-18px,24px,0)}}
+@media(max-width:700px){.dashboard .stat:hover,.dashboard #userContent .card:hover,.dashboard #workerContent .card:hover,.dashboard #userContent .offer:hover,.dashboard #workerContent .offer:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){.sev-reveal,.sev-reveal.sev-reveal-in{opacity:1;transform:none;transition:none}.sev-service-icon::before,.dashboard::before{animation:none}.sev-ripple{display:none}}
