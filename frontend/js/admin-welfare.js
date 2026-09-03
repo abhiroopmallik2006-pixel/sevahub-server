@@ -2,9 +2,10 @@
    Lightweight: no polling; data loads only when this tab is opened or an action is taken. */
 (function(){
   const SECTION='welfare';
+  let cachedWorkers=[];
 
   function safe(v=''){
-    try{return typeof esc==='function'?esc(v):String(v)}catch(e){return String(v)}
+    try{return typeof esc==='function'?esc(v):String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}catch(e){return String(v)}
   }
   function formatDate(value){
     const s=String(value||'').slice(0,10);
@@ -19,6 +20,7 @@
   function coverageLabel(value){
     return ({ACCIDENT:'Accident Cover',HEALTH:'Health Cover',HOSPITALIZATION:'Hospitalization',DISABILITY:'Disability Cover',LIFE:'Life Cover',OTHER:'Other'})[String(value||'').toUpperCase()]||String(value||'—');
   }
+  function money(value){return `₹${Number(value||0).toLocaleString('en-IN')}`}
 
   function ensureTab(){
     const tabs=document.getElementById('adminTabs');
@@ -48,28 +50,33 @@
     }
   }
 
+  function actionButtons(row,type){
+    const workerId=Number(row.workerId);
+    const record=type==='welfare'?(row.welfare||{}):(row.insurance||{});
+    const s=String(record.status||'NOT_ENROLLED').toUpperCase();
+    const view=`<button class="btn secondary small" type="button" onclick="viewAdminWorkerProfile(${workerId})">View Profile</button>`;
+    if(type==='welfare'&&s==='PENDING')return `<div class="actions">${view}<button class="btn small" onclick="reviewAdminWelfare(${workerId},'ACTIVE')">Approve</button><button class="btn danger small" onclick="reviewAdminWelfare(${workerId},'REJECTED')">Reject</button></div>`;
+    if(type==='insurance'&&s==='PENDING')return `<div class="actions">${view}<button class="btn small" onclick="reviewAdminInsurance(${workerId},'VERIFIED')">Mark reviewed</button><button class="btn danger small" onclick="reviewAdminInsurance(${workerId},'REJECTED')">Reject</button></div>`;
+    return `<div class="actions">${view}</div>`;
+  }
+
   function renderAdminWelfare(data){
     const box=document.getElementById('adminContent');
     if(!box)return;
     const summary=data.summary||{};
     const workers=Array.isArray(data.workers)?data.workers:[];
+    cachedWorkers=workers;
 
     const welfareRows=workers.map(row=>{
       const w=row.welfare||{};
       const s=String(w.status||'NOT_ENROLLED').toUpperCase();
-      let actions='<span class="muted">—</span>';
-      if(s==='PENDING')actions=`<div class="actions"><button class="btn small" onclick="reviewAdminWelfare(${Number(row.workerId)},'ACTIVE')">Approve</button><button class="btn danger small" onclick="reviewAdminWelfare(${Number(row.workerId)},'REJECTED')">Reject</button></div>`;
-      else if(s==='REJECTED')actions='<span class="muted">Worker can request again</span>';
-      return `<tr><td>#${Number(row.workerId)}</td><td><b>${safe(row.fullName)}</b><br><span class="muted">${safe(row.email||'')}</span></td><td>${safe(row.services||'Not set')}</td><td>${statusPill(s)}</td><td>${w.memberId?safe(w.memberId):'—'}</td><td>${w.requestedAt?formatDate(w.requestedAt):'—'}</td><td>${w.reviewNote?safe(w.reviewNote):'—'}</td><td>${actions}</td></tr>`;
+      return `<tr><td>#${Number(row.workerId)}</td><td><b>${safe(row.fullName)}</b><br><span class="muted">${safe(row.email||'')}</span></td><td>${safe(row.services||'Not set')}</td><td>${statusPill(s)}</td><td>${w.memberId?safe(w.memberId):'—'}</td><td>${w.requestedAt?formatDate(w.requestedAt):'—'}</td><td>${w.reviewNote?safe(w.reviewNote):'—'}</td><td>${actionButtons(row,'welfare')}</td></tr>`;
     }).join('')||'<tr><td colspan="8"><div class="empty">No workers found.</div></td></tr>';
 
     const insuranceRows=workers.map(row=>{
       const i=row.insurance||{};
       const s=String(i.status||'NOT_ENROLLED').toUpperCase();
-      let actions='<span class="muted">—</span>';
-      if(s==='PENDING')actions=`<div class="actions"><button class="btn small" onclick="reviewAdminInsurance(${Number(row.workerId)},'VERIFIED')">Mark reviewed</button><button class="btn danger small" onclick="reviewAdminInsurance(${Number(row.workerId)},'REJECTED')">Reject</button></div>`;
-      else if(s==='REJECTED'||s==='EXPIRED')actions='<span class="muted">Worker must update record</span>';
-      return `<tr><td>#${Number(row.workerId)}</td><td><b>${safe(row.fullName)}</b></td><td>${safe(i.providerName||'—')}</td><td>${safe(i.policyNumber||'—')}</td><td>${safe(coverageLabel(i.coverageType))}</td><td>${i.validUntil?formatDate(i.validUntil):'—'}</td><td>${statusPill(s)}</td><td>${i.reviewNote?safe(i.reviewNote):'—'}</td><td>${actions}</td></tr>`;
+      return `<tr><td>#${Number(row.workerId)}</td><td><b>${safe(row.fullName)}</b></td><td>${safe(i.providerName||'—')}</td><td>${safe(i.policyNumber||'—')}</td><td>${safe(coverageLabel(i.coverageType))}</td><td>${i.validUntil?formatDate(i.validUntil):'—'}</td><td>${statusPill(s)}</td><td>${i.reviewNote?safe(i.reviewNote):'—'}</td><td>${actionButtons(row,'insurance')}</td></tr>`;
     }).join('')||'<tr><td colspan="9"><div class="empty">No workers found.</div></td></tr>';
 
     box.innerHTML=`
@@ -96,6 +103,39 @@
       </section>`;
   }
 
+  function viewAdminWorkerProfile(workerId){
+    const row=cachedWorkers.find(x=>Number(x.workerId)===Number(workerId));
+    if(!row)return alert('Worker profile is not available. Refresh the Welfare tab.');
+    closeAdminWorkerProfile();
+    const p=row.profile||{},w=row.welfare||{},i=row.insurance||{};
+    const modal=document.createElement('div');
+    modal.id='adminWorkerProfileModal';
+    modal.className='admin-modal';
+    modal.innerHTML=`<div class="admin-chat-card admin-worker-profile-card">
+      <div class="admin-chat-head"><div><span class="admin-welfare-kicker">WORKER PROFILE</span><h2>${safe(row.fullName||'Worker')} · #${Number(row.workerId)}</h2><p class="muted">${safe(row.email||'')}${row.phone?` · ${safe(row.phone)}`:''}</p></div><button class="btn secondary small" type="button" onclick="closeAdminWorkerProfile()">Close</button></div>
+      <div class="admin-worker-profile-grid">
+        <div><span>Verification</span><b>${statusPill(p.verificationStatus)}</b></div>
+        <div><span>Primary service</span><b>${safe(p.primaryService||row.services||'Not set')}</b></div>
+        <div><span>Starting price</span><b>${money(p.startingPrice)}</b></div>
+        <div><span>Experience</span><b>${Number(p.experienceYears||0)} years</b></div>
+        <div><span>Working area</span><b>${safe(p.serviceArea||'—')}</b></div>
+        <div><span>Service radius</span><b>${Number(p.serviceRadius||0)} km</b></div>
+        <div><span>Working hours</span><b>${safe(p.workingHours||'—')}</b></div>
+        <div><span>Rating</span><b>${Number(p.rating||0).toFixed(1)} / 5 · ${Number(p.totalReviews||0)} reviews</b></div>
+      </div>
+      ${p.bio?`<div class="admin-worker-profile-text"><span>Bio</span><p>${safe(p.bio)}</p></div>`:''}
+      ${p.introduction?`<div class="admin-worker-profile-text"><span>Introduction</span><p>${safe(p.introduction)}</p></div>`:''}
+      <div class="admin-worker-profile-split">
+        <section><h3>🛡️ Welfare</h3><p>Status: ${statusPill(w.status)}</p><p><b>Member ID:</b> ${safe(w.memberId||'—')}</p><p><b>Requested:</b> ${w.requestedAt?formatDate(w.requestedAt):'—'}</p>${w.reviewNote?`<p><b>Review note:</b> ${safe(w.reviewNote)}</p>`:''}</section>
+        <section><h3>Insurance record</h3><p>Status: ${statusPill(i.status)}</p><p><b>Provider:</b> ${safe(i.providerName||'—')}</p><p><b>Policy:</b> ${safe(i.policyNumber||'—')}</p><p><b>Coverage:</b> ${safe(coverageLabel(i.coverageType))}</p><p><b>Valid until:</b> ${i.validUntil?formatDate(i.validUntil):'—'}</p>${i.reviewNote?`<p><b>Review note:</b> ${safe(i.reviewNote)}</p>`:''}</section>
+      </div>
+    </div>`;
+    modal.addEventListener('click',event=>{if(event.target===modal)closeAdminWorkerProfile()});
+    document.body.appendChild(modal);
+  }
+
+  function closeAdminWorkerProfile(){document.getElementById('adminWorkerProfileModal')?.remove()}
+
   async function reviewAdminWelfare(workerId,status){
     const note=status==='REJECTED'?(prompt('Optional rejection note for the worker:')||''):'';
     try{
@@ -115,6 +155,8 @@
   globalThis.openAdminWelfare=openAdminWelfare;
   globalThis.reviewAdminWelfare=reviewAdminWelfare;
   globalThis.reviewAdminInsurance=reviewAdminInsurance;
+  globalThis.viewAdminWorkerProfile=viewAdminWorkerProfile;
+  globalThis.closeAdminWorkerProfile=closeAdminWorkerProfile;
 
   const root=document.getElementById('adminApp');
   if(root){
