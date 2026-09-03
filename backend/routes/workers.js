@@ -1,14 +1,25 @@
 const express=require('express');
 const pool=require('../config');
 const {auth,authorize}=require('../middleware/auth');
+const {ensureWorkerModeration}=require('../utils/workerModeration');
 const router=express.Router();
 
 async function workerProfileByUser(userId,db=pool){
+  await ensureWorkerModeration(db);
   const [rows]=await db.query(`
     SELECT w.*,u.full_name,u.username,u.email,u.phone,
-      (SELECT ws.service_id FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) service_id,
-      (SELECT s.name FROM worker_services ws JOIN services s ON s.id=ws.service_id WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) service_name,
-      (SELECT ws.price FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) service_price
+      COALESCE(
+        (SELECT ws.service_id FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1),
+        (SELECT sws.service_id FROM worker_suspended_services sws WHERE sws.worker_id=w.id ORDER BY sws.service_id LIMIT 1)
+      ) service_id,
+      COALESCE(
+        (SELECT s.name FROM worker_services ws JOIN services s ON s.id=ws.service_id WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1),
+        (SELECT s.name FROM worker_suspended_services sws JOIN services s ON s.id=sws.service_id WHERE sws.worker_id=w.id ORDER BY sws.service_id LIMIT 1)
+      ) service_name,
+      COALESCE(
+        (SELECT ws.price FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1),
+        (SELECT sws.price FROM worker_suspended_services sws WHERE sws.worker_id=w.id ORDER BY sws.service_id LIMIT 1)
+      ) service_price
     FROM workers w JOIN users u ON u.id=w.user_id WHERE w.user_id=?`,[userId]);
   return rows[0]||null;
 }
@@ -40,11 +51,16 @@ router.put('/me',auth,authorize('WORKER'),async(req,res,next)=>{
   if(introduction.length>1200)return res.status(400).json({success:false,message:'Introduction must be 1200 characters or less'});
   if(!Number.isFinite(price)||price<1||price>1000000)return res.status(400).json({success:false,message:'Starting price must be between ₹1 and ₹10,00,000'});
 
+  await ensureWorkerModeration(pool);
   const conn=await pool.getConnection();
   try{
     await conn.beginTransaction();
-    const [workers]=await conn.query('SELECT id FROM workers WHERE user_id=? LIMIT 1 FOR UPDATE',[req.user.id]);
+    const [workers]=await conn.query('SELECT id,is_banned,ban_reason FROM workers WHERE user_id=? LIMIT 1 FOR UPDATE',[req.user.id]);
     if(!workers.length){await conn.rollback();return res.status(404).json({success:false,message:'Worker profile not found'})}
+    if(Boolean(workers[0].is_banned)){
+      await conn.rollback();
+      return res.status(403).json({success:false,message:`Profile editing is disabled while your worker account is restricted${workers[0].ban_reason?`: ${workers[0].ban_reason}`:''}`});
+    }
     const workerId=Number(workers[0].id);
     const [serviceRows]=await conn.query('SELECT id FROM worker_services WHERE worker_id=? ORDER BY id LIMIT 1 FOR UPDATE',[workerId]);
     if(!serviceRows.length){await conn.rollback();return res.status(400).json({success:false,message:'Worker service is not configured yet'})}
@@ -80,9 +96,10 @@ router.get('/me/bargains',auth,authorize('WORKER'),async(req,res,next)=>{
 
 router.get('/:id',async(req,res,next)=>{
   try{
+    await ensureWorkerModeration(pool);
     const [rows]=await pool.query(`
       SELECT w.*,u.full_name,u.username,u.profile_image,u.email,u.phone
-      FROM workers w JOIN users u ON u.id=w.user_id WHERE w.id=?`,[req.params.id]);
+      FROM workers w JOIN users u ON u.id=w.user_id WHERE w.id=? AND COALESCE(w.is_banned,0)=0`,[req.params.id]);
     if(!rows.length) return res.status(404).json({success:false,message:'Worker not found'});
     const [services]=await pool.query(`
       SELECT s.id,s.name,ws.price FROM worker_services ws JOIN services s ON s.id=ws.service_id WHERE ws.worker_id=?`,[req.params.id]);
