@@ -1,0 +1,64 @@
+/* SevaHub aggressive visual performance overrides.
+   Keeps the same layout/content while reducing large GPU layers and backdrop blur. */
+
+/* MacBook stays open and live, but no continuous 3D rasterization layer. */
+.sevahub-macbook3d{
+  transform:none!important;
+  transform-style:flat!important;
+  will-change:auto!important;
+}
+.sevahub-macbook3d-section{perspective:none!important}
+.sevahub-macbook3d-screen{
+  box-shadow:0 14px 30px rgba(30,20,15,.20)!important;
+  contain:layout paint style;
+}
+.sevahub-macbook-live-content{contain:layout style}
+
+/* Disable per-card 3D promotion if any older markup still carries the class. */
+.sevahub-fx-3d-card{
+  transform:none!important;
+  transform-style:flat!important;
+  will-change:auto!important;
+  transition:box-shadow .18s ease!important;
+}
+
+/* Top dashboard preview remains visually the same but stops moving every scroll frame. */
+.dashboard-scroll-card{
+  transform:none!important;
+  opacity:1!important;
+  transform-style:flat!important;
+  will-change:auto!important;
+  transition:none!important;
+}
+.dashboard-scroll-glow{
+  filter:none!important;
+  opacity:.38;
+}
+.dashboard-scroll-stage{contain:layout paint style}
+
+/* Avoid expensive backdrop recomposition over animated backgrounds. */
+.sev-dashboard-bg-toggle,
+.sev-dashboard-bg-menu,
+.layout-grid-number{
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+
+/* Lower sections do not need to be painted until the user approaches them. */
+.dashboard-layout-grid{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 760px;
+  contain:layout style paint;
+}
+.layout-grid-card{
+  will-change:auto!important;
+  contain:paint;
+}
+
+/* Fixed background control should be a simple opaque layer, not live glass. */
+.sev-dashboard-bg-toggle{background:rgba(56,43,38,.98)!important}
+.sev-dashboard-bg-menu{background:rgba(40,30,27,.99)!important}
+
+@media(max-width:800px){
+  .dashboard-layout-grid{contain-intrinsic-size:auto 980px}
+}
