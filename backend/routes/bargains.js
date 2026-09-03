@@ -2,7 +2,7 @@ const express=require('express');
 const pool=require('../config');
 const {auth}=require('../middleware/auth');
 const {notify}=require('../utils/notifications');
-const {assertWorkerActive}=require('../utils/workerModeration');
+const {assertWorkerActive,ensureWorkerModeration,moderationByWorker}=require('../utils/workerModeration');
 const router=express.Router();
 
 async function booking(id,userId){
@@ -23,6 +23,14 @@ async function blockRestrictedWorker(req,res){
   return true;
 }
 
+async function blockBookingWorker(workerId,res){
+  const moderation=await moderationByWorker(workerId,pool);
+  if(!moderation)return false;
+  if(!moderation.isBanned)return false;
+  res.status(403).json({success:false,message:'This worker is currently restricted, so bargaining cannot continue.'});
+  return true;
+}
+
 router.get('/:bookingId',auth,async(req,res,next)=>{
   try{
     const b=await booking(req.params.bookingId,req.user.id);
@@ -34,9 +42,11 @@ router.get('/:bookingId',auth,async(req,res,next)=>{
 
 router.post('/',auth,async(req,res,next)=>{
   try{
+    await ensureWorkerModeration(pool);
     if(await blockRestrictedWorker(req,res))return;
     const b=await booking(req.body.bookingId,req.user.id),amount=Number(req.body.amount);
     if(!b)return res.status(404).json({success:false,message:'Booking not found'});
+    if(await blockBookingWorker(b.worker_id,res))return;
     if(!Number.isFinite(amount)||amount<=0)return res.status(400).json({success:false,message:'Enter a valid amount'});
     if(['ACCEPTED','COMPLETED','CANCELLED','IN_PROGRESS'].includes(b.status))return res.status(400).json({success:false,message:'Bargaining is closed'});
 
@@ -62,7 +72,10 @@ router.post('/',auth,async(req,res,next)=>{
 });
 
 router.put('/:id/respond',auth,async(req,res,next)=>{
-  try{if(await blockRestrictedWorker(req,res))return}catch(e){return next(e)}
+  try{
+    await ensureWorkerModeration(pool);
+    if(await blockRestrictedWorker(req,res))return;
+  }catch(e){return next(e)}
   const conn=await pool.getConnection();
   try{
     const action=String(req.body.action||'').toUpperCase();
@@ -85,6 +98,12 @@ router.put('/:id/respond',auth,async(req,res,next)=>{
     if(o.status!=='PENDING'){
       await conn.rollback();
       return res.status(400).json({success:false,message:'Offer is no longer active'});
+    }
+    const [bookingRows]=await conn.query(`SELECT b.worker_id,w.is_banned,w.ban_reason FROM bookings b JOIN workers w ON w.id=b.worker_id WHERE b.id=? LIMIT 1`,[o.booking_id]);
+    if(!bookingRows.length){await conn.rollback();return res.status(404).json({success:false,message:'Booking not found'});}
+    if(Boolean(bookingRows[0].is_banned)){
+      await conn.rollback();
+      return res.status(403).json({success:false,message:'This worker is currently restricted, so bargaining cannot continue.'});
     }
 
     if(action==='ACCEPT'){
