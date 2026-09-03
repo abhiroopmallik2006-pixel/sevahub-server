@@ -29,6 +29,7 @@
       submit:'Submit for Review',
       resubmit:'Update & Re-submit',
       reviewNote:'Review note',
+      removedByAdmin:'Removed by cooperative',
       disclaimer:'Insurance details are submitted by the worker and reviewed by the cooperative. This is not direct insurer/API validation.',
       loading:'Loading welfare & insurance…',
       retry:'Retry',
@@ -58,6 +59,7 @@
       submit:'समीक्षा के लिए भेजें',
       resubmit:'अपडेट करके दोबारा भेजें',
       reviewNote:'समीक्षा नोट',
+      removedByAdmin:'सहकारी द्वारा हटाया गया',
       disclaimer:'बीमा विवरण वर्कर द्वारा जमा किए जाते हैं और सहकारी द्वारा समीक्षा की जाती है। यह सीधे बीमा कंपनी/API की पुष्टि नहीं है।',
       loading:'कल्याण और बीमा लोड हो रहा है…',
       retry:'फिर कोशिश करें',
@@ -69,8 +71,8 @@
   };
 
   const statusLabels={
-    en:{NOT_ENROLLED:'Not Enrolled',PENDING:'Pending Review',ACTIVE:'Active',REJECTED:'Rejected',VERIFIED:'Cooperative Verified',EXPIRED:'Expired'},
-    hi:{NOT_ENROLLED:'नामांकित नहीं',PENDING:'समीक्षा लंबित',ACTIVE:'सक्रिय',REJECTED:'अस्वीकृत',VERIFIED:'सहकारी द्वारा सत्यापित',EXPIRED:'समाप्त'}
+    en:{NOT_ENROLLED:'Not Enrolled',PENDING:'Pending Review',ACTIVE:'Active',REJECTED:'Rejected',VERIFIED:'Cooperative Verified',EXPIRED:'Expired',REMOVED:'Removed by Admin'},
+    hi:{NOT_ENROLLED:'नामांकित नहीं',PENDING:'समीक्षा लंबित',ACTIVE:'सक्रिय',REJECTED:'अस्वीकृत',VERIFIED:'सहकारी द्वारा सत्यापित',EXPIRED:'समाप्त',REMOVED:'एडमिन द्वारा हटाया गया'}
   };
   const coverageLabels={
     en:{ACCIDENT:'Accident Cover',HEALTH:'Health Cover',HOSPITALIZATION:'Hospitalization',DISABILITY:'Disability Cover',LIFE:'Life Cover',OTHER:'Other'},
@@ -94,7 +96,7 @@
   }
   function statusPill(status){
     const s=String(status||'NOT_ENROLLED').toUpperCase();
-    const cls=['ACTIVE','VERIFIED'].includes(s)?'ok':['REJECTED','EXPIRED'].includes(s)?'bad':s==='PENDING'?'warn':'neutral';
+    const cls=['ACTIVE','VERIFIED'].includes(s)?'ok':['REJECTED','EXPIRED','REMOVED'].includes(s)?'bad':s==='PENDING'?'warn':'neutral';
     return `<span class="welfare-status ${cls}">${safe(statusLabels[lang()][s]||s)}</span>`;
   }
   async function welfareApi(path,options={}){
@@ -154,6 +156,7 @@
           <div class="worker-welfare-card-head"><h3>${c.insurance}</h3>${statusPill(insuranceStatus)}</div>
           <p class="muted">${c.insuranceText}</p>
           ${insuranceStatus==='REJECTED'&&insurance.reviewNote?`<div class="welfare-review-note"><b>${c.reviewNote}:</b> ${safe(insurance.reviewNote)}</div>`:''}
+          ${insuranceStatus==='REMOVED'&&insurance.removalReason?`<div class="welfare-review-note"><b>${c.removedByAdmin}:</b> ${safe(insurance.removalReason)}</div>`:''}
           <form class="worker-insurance-form" onsubmit="submitWorkerInsurance(event)">
             <label>${c.provider}<input id="workerInsuranceProvider" maxlength="120" value="${safe(insurance.providerName||'')}" required></label>
             <label>${c.policy}<input id="workerInsurancePolicy" maxlength="120" value="${safe(insurance.policyNumber||'')}" required></label>
