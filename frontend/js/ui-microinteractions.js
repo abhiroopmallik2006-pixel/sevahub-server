@@ -1,19 +1,30 @@
 /* SevaHub lightweight UI micro-interactions.
    Additive only: no booking/auth/payment/AI/support logic is replaced. */
 (function(){
-  const reduced=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const reducedMedia=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const reduced=()=>Boolean(reducedMedia?.matches);
   const seen=new WeakSet();
   const statValues=new WeakMap();
   const animatingStats=new WeakSet();
+  const pendingRoots=new Set();
+  let refreshRaf=0;
+
+  const revealSelector='.dashboard #userContent > *, .dashboard #workerContent > *, .service-card, .worker-card, .offer, .booking-chat, .support-panel, .activity-report-panel';
+
+  function eachMatch(root,selector,callback){
+    let index=0;
+    if(root?.nodeType===1&&root.matches?.(selector))callback(root,index++);
+    root?.querySelectorAll?.(selector).forEach(el=>callback(el,index++));
+  }
 
   function markReveal(root=document){
     if(reduced())return;
-    root.querySelectorAll?.('.dashboard #userContent > *, .dashboard #workerContent > *, .service-card, .worker-card, .offer, .booking-chat, .support-panel, .activity-report-panel').forEach((el,i)=>{
+    eachMatch(root,revealSelector,(el,i)=>{
       if(seen.has(el))return;
       seen.add(el);
       el.classList.add('sev-reveal');
       el.style.setProperty('--sev-delay',`${Math.min(i*28,180)}ms`);
-      requestAnimationFrame(()=>el.classList.add('sev-reveal-in'));
+      requestAnimationFrame(()=>{if(el.isConnected)el.classList.add('sev-reveal-in')});
     });
   }
 
@@ -48,7 +59,7 @@
     if(previous===parsed.value)return;
 
     const start=performance.now();
-    const duration=380;
+    const duration=320;
     const from=Number(previous);
     const to=parsed.value;
     animatingStats.add(el);
@@ -67,7 +78,7 @@
   }
 
   function syncStats(root=document){
-    root.querySelectorAll?.('.stats .stat b').forEach(el=>{
+    eachMatch(root,'.stats .stat b',el=>{
       if(animatingStats.has(el)||statValues.has(el))return;
       const p=parseNumeric(el.textContent);
       if(p)statValues.set(el,p.value);
@@ -75,7 +86,7 @@
   }
 
   function decorateServiceIcons(root=document){
-    root.querySelectorAll?.('.service-icon').forEach(el=>{
+    eachMatch(root,'.service-icon',el=>{
       if(el.dataset.sevGraphic==='1')return;
       el.dataset.sevGraphic='1';
       el.classList.add('sev-service-icon');
@@ -88,24 +99,45 @@
     decorateServiceIcons(root);
   }
 
+  function queueRefresh(root){
+    if(!root)return;
+    if(root.nodeType===3)root=root.parentElement;
+    if(!root)return;
+    if(pendingRoots.size>=18){
+      pendingRoots.clear();
+      pendingRoots.add(document.getElementById('app')||document);
+    }else{
+      pendingRoots.add(root);
+    }
+    if(refreshRaf)return;
+    refreshRaf=requestAnimationFrame(()=>{
+      refreshRaf=0;
+      const roots=[...pendingRoots];
+      pendingRoots.clear();
+      roots.forEach(item=>{if(item===document||item.isConnected)refresh(item)});
+    });
+  }
+
   document.addEventListener('click',event=>{
     const btn=event.target.closest?.('button,.btn');
     if(btn)addRipple(btn,event);
   },true);
 
   const observer=new MutationObserver(mutations=>{
-    let refreshNeeded=false;
     for(const mutation of mutations){
       if(mutation.type==='characterData'){
         const parent=mutation.target.parentElement;
         if(parent?.matches?.('.stats .stat b')&&!animatingStats.has(parent))animateStat(parent);
+        continue;
       }
-      if(mutation.type==='childList'){
-        if(mutation.target?.matches?.('.stats .stat b')&&!animatingStats.has(mutation.target))animateStat(mutation.target);
-        refreshNeeded=true;
-      }
+      if(mutation.type!=='childList')continue;
+      if(mutation.target?.matches?.('.stats .stat b')&&!animatingStats.has(mutation.target))animateStat(mutation.target);
+      mutation.addedNodes.forEach(node=>{
+        if(node.nodeType!==1)return;
+        if(node.classList?.contains('sev-ripple'))return;
+        queueRefresh(node);
+      });
     }
-    if(refreshNeeded)requestAnimationFrame(()=>refresh(document));
   });
 
   function start(){
