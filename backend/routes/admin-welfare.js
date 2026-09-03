@@ -32,8 +32,11 @@ async function workerAccount(workerId){
 router.get('/',adminAuth,async(req,res,next)=>{try{
   await ensureWelfareTables(pool);
   const [rows]=await pool.query(`
-    SELECT w.id worker_id,w.user_id,u.full_name,u.email,
+    SELECT w.id worker_id,w.user_id,u.full_name,u.username,u.email,u.phone,
+      w.experience_years,w.bio,w.verification_status,w.service_area,w.service_radius,w.working_hours,w.introduction,w.rating,w.total_reviews,w.created_at worker_since,
       (SELECT GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') FROM worker_services ws JOIN services s ON s.id=ws.service_id WHERE ws.worker_id=w.id) services,
+      (SELECT s.name FROM worker_services ws JOIN services s ON s.id=ws.service_id WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) primary_service,
+      (SELECT ws.price FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) starting_price,
       ww.status welfare_status,ww.member_id,ww.requested_at welfare_requested_at,ww.reviewed_at welfare_reviewed_at,ww.review_note welfare_review_note,
       wi.provider_name,wi.policy_number,wi.coverage_type,wi.valid_until,wi.status insurance_status,wi.submitted_at insurance_submitted_at,wi.reviewed_at insurance_reviewed_at,wi.review_note insurance_review_note
     FROM workers w
@@ -48,8 +51,24 @@ router.get('/',adminAuth,async(req,res,next)=>{try{
     workerId:Number(row.worker_id),
     userId:Number(row.user_id),
     fullName:row.full_name,
+    username:row.username,
     email:row.email,
+    phone:row.phone||'',
     services:row.services||'Not set',
+    profile:{
+      primaryService:row.primary_service||'Not set',
+      startingPrice:Number(row.starting_price||0),
+      experienceYears:Number(row.experience_years||0),
+      bio:row.bio||'',
+      verificationStatus:String(row.verification_status||'PENDING').toUpperCase(),
+      serviceArea:row.service_area||'',
+      serviceRadius:Number(row.service_radius||0),
+      workingHours:row.working_hours||'',
+      introduction:row.introduction||'',
+      rating:Number(row.rating||0),
+      totalReviews:Number(row.total_reviews||0),
+      workerSince:row.worker_since||null
+    },
     welfare:{
       status:String(row.welfare_status||'NOT_ENROLLED').toUpperCase(),
       memberId:row.member_id||null,
