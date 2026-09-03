@@ -5,6 +5,8 @@
   position:relative;
   z-index:2;
   contain:layout style;
+  content-visibility:auto;
+  contain-intrinsic-size:auto 720px;
 }
 .sevahub-macbook-below-content>.card.panel,
 .sevahub-macbook-below-content>.activity-report-panel,
