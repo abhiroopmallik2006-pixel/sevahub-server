@@ -4,6 +4,7 @@ const crypto=require('crypto');
 const pool=require('../config');
 const {auth,authorize}=require('../middleware/auth');
 const {notify}=require('../utils/notifications');
+const {ensureWorkerModeration}=require('../utils/workerModeration');
 
 const router=express.Router();
 const PLATFORM_FEE_PERCENT=Number(process.env.PLATFORM_FEE_PERCENT||2);
@@ -124,14 +125,19 @@ router.post('/order',auth,authorize('USER'),async(req,res,next)=>{try{
   const bookingId=Number(req.body.bookingId);
   if(!Number.isInteger(bookingId)||bookingId<1)return res.status(400).json({success:false,message:'Invalid booking'});
 
-  await ensurePaymentsTable();
+  await Promise.all([ensurePaymentsTable(),ensureWorkerModeration(pool)]);
 
-  const [rows]=await pool.query(`SELECT b.id,b.user_id,b.status,b.payment_method,b.original_price,b.final_price,u.full_name,u.email,u.phone FROM bookings b JOIN users u ON u.id=b.user_id WHERE b.id=? AND b.user_id=?`,[bookingId,req.user.id]);
+  const [rows]=await pool.query(`SELECT b.id,b.user_id,b.status,b.payment_method,b.original_price,b.final_price,u.full_name,u.email,u.phone,w.is_banned,w.ban_reason
+    FROM bookings b
+    JOIN users u ON u.id=b.user_id
+    JOIN workers w ON w.id=b.worker_id
+    WHERE b.id=? AND b.user_id=?`,[bookingId,req.user.id]);
   if(!rows.length)return res.status(404).json({success:false,message:'Booking not found'});
 
   const booking=rows[0];
   if(String(booking.payment_method||'').toLowerCase()==='cash')return res.status(400).json({success:false,message:'This booking is set to Cash payment'});
   if(!['ACCEPTED','IN_PROGRESS','COMPLETED'].includes(booking.status))return res.status(400).json({success:false,message:'Online payment becomes available after the worker accepts the booking'});
+  if(booking.status!=='COMPLETED'&&Boolean(booking.is_banned))return res.status(403).json({success:false,message:'This worker is currently restricted. Online payment is unavailable until the cooperative resolves the booking.'});
 
   const amountRupees=Number(booking.final_price??booking.original_price??0);
   if(!(amountRupees>0))return res.status(400).json({success:false,message:'Invalid booking amount'});
