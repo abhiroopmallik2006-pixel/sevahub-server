@@ -3,14 +3,18 @@
 (function(){
   const KEY='sevahub_dashboard_background';
   const TYPES=new Set(['vortex','wavy','stars','grid']);
-  const coarse=()=>window.matchMedia?.('(pointer: coarse)')?.matches;
-  const reduced=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const coarseMedia=window.matchMedia?.('(pointer: coarse)');
+  const reducedMedia=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const coarse=()=>Boolean(coarseMedia?.matches);
+  const reduced=()=>Boolean(reducedMedia?.matches);
   const rand=(a,b)=>a+Math.random()*(b-a);
 
   let layer=null;
   let controls=null;
   let raf=0;
+  let frameTimer=0;
   let resizeHandler=null;
+  let resizeRaf=0;
   let scanScheduled=false;
   let appliedType=null;
 
@@ -42,8 +46,19 @@
     }catch(e){return 'grid'}
   }
 
+  function scheduleFrame(fn){
+    if(reduced()||document.hidden)return;
+    const delay=coarse()?42:34;
+    frameTimer=window.setTimeout(()=>{
+      frameTimer=0;
+      raf=requestAnimationFrame(fn);
+    },delay);
+  }
+
   function stopAnimation(){
     if(raf){cancelAnimationFrame(raf);raf=0}
+    if(frameTimer){clearTimeout(frameTimer);frameTimer=0}
+    if(resizeRaf){cancelAnimationFrame(resizeRaf);resizeRaf=0}
     if(resizeHandler){window.removeEventListener('resize',resizeHandler);resizeHandler=null}
   }
 
@@ -54,8 +69,8 @@
     const ctx=canvas.getContext('2d');
     if(!ctx)return null;
 
-    const resize=()=>{
-      const dpr=Math.min(1.6,window.devicePixelRatio||1);
+    const resizeNow=()=>{
+      const dpr=coarse()?1:Math.min(1.25,window.devicePixelRatio||1);
       const width=Math.max(1,window.innerWidth);
       const height=Math.max(1,window.innerHeight);
       canvas.width=Math.round(width*dpr);
@@ -64,30 +79,36 @@
       canvas.style.height=height+'px';
       ctx.setTransform(dpr,0,0,dpr,0,0);
     };
-    resize();
-    resizeHandler=resize;
-    window.addEventListener('resize',resize,{passive:true});
+    const onResize=()=>{
+      if(resizeRaf)return;
+      resizeRaf=requestAnimationFrame(()=>{resizeRaf=0;resizeNow()});
+    };
+    resizeNow();
+    resizeHandler=onResize;
+    window.addEventListener('resize',onResize,{passive:true});
     return {canvas,ctx};
   }
 
   function runVortex(root){
     const pack=canvasFor(root);if(!pack)return;
     const {ctx}=pack;
-    const count=coarse()?80:140;
+    const count=coarse()?55:95;
     let particles=[];
     const reset=()=>{
       const span=Math.max(innerWidth,innerHeight)*.58;
       particles=Array.from({length:count},()=>({
-        z:rand(.2,1),a:rand(0,Math.PI*2),r:rand(22,span),speed:rand(.0015,.0042)
+        z:rand(.2,1),a:rand(0,Math.PI*2),r:rand(22,span),speed:rand(.0028,.008)
       }));
     };
     reset();
     const draw=()=>{
+      if(!root.isConnected)return;
       const w=innerWidth,h=innerHeight,cx=w/2,cy=h/2,span=Math.max(w,h)*.58;
       ctx.clearRect(0,0,w,h);
       ctx.fillStyle='rgba(4,8,8,.12)';ctx.fillRect(0,0,w,h);
       particles.forEach(p=>{
-        if(!reduced()){p.a+=p.speed;p.r-=.16}
+        p.a+=p.speed;
+        p.r-=.3;
         if(p.r<8){p.r=span;p.a=rand(0,Math.PI*2)}
         const x=cx+Math.cos(p.a)*p.r;
         const y=cy+Math.sin(p.a)*p.r*.52;
@@ -95,7 +116,7 @@
         ctx.fillStyle=`hsla(${110+p.z*45},90%,${55+p.z*20}%,${.17+p.z*.48})`;
         ctx.beginPath();ctx.arc(x,y,size,0,Math.PI*2);ctx.fill();
       });
-      if(!reduced())raf=requestAnimationFrame(draw);
+      scheduleFrame(draw);
     };
     draw();
   }
@@ -103,22 +124,24 @@
   function runWavy(root){
     const pack=canvasFor(root);if(!pack)return;
     const {ctx}=pack;
-    const waves=Array.from({length:6},(_,i)=>({amp:18+i*6,phase:i*1.3,speed:.007+i*.001,y:.25+i*.11}));
+    const waves=Array.from({length:6},(_,i)=>({amp:18+i*6,phase:i*1.3,speed:.014+i*.002,y:.25+i*.11}));
     const draw=()=>{
+      if(!root.isConnected)return;
       const w=innerWidth,h=innerHeight;
       ctx.clearRect(0,0,w,h);
+      const step=coarse()?16:12;
       waves.forEach((wave,i)=>{
         ctx.beginPath();
-        for(let x=0;x<=w;x+=8){
+        for(let x=0;x<=w;x+=step){
           const y=h*wave.y+Math.sin(x*.008+wave.phase)*wave.amp+Math.sin(x*.002+wave.phase*1.7)*wave.amp*.35;
           if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
         }
         ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();
         ctx.fillStyle=`hsla(${22+i*9},85%,${48+i*5}%,${.045+i*.012})`;
         ctx.fill();
-        if(!reduced())wave.phase+=wave.speed;
+        wave.phase+=wave.speed;
       });
-      if(!reduced())raf=requestAnimationFrame(draw);
+      scheduleFrame(draw);
     };
     draw();
   }
@@ -126,30 +149,31 @@
   function runStars(root){
     const pack=canvasFor(root);if(!pack)return;
     const {ctx}=pack;
-    const count=coarse()?85:140;
+    const count=coarse()?60:95;
     let stars=Array.from({length:count},()=>({x:rand(0,innerWidth),y:rand(0,innerHeight),r:rand(.5,2.1),tw:rand(0,Math.PI*2)}));
     let shooters=[];
     const draw=()=>{
+      if(!root.isConnected)return;
       const w=innerWidth,h=innerHeight;
       ctx.clearRect(0,0,w,h);
       ctx.fillStyle='rgba(6,9,18,.42)';ctx.fillRect(0,0,w,h);
       stars.forEach(p=>{
-        if(!reduced())p.tw+=.025;
+        p.tw+=.05;
         const alpha=.34+.34*Math.sin(p.tw);
         ctx.fillStyle=`rgba(255,255,255,${Math.max(.08,alpha)})`;
         ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
-        if(!reduced()){p.y+=.08;if(p.y>h){p.y=0;p.x=rand(0,w)}}
+        p.y+=.16;if(p.y>h){p.y=0;p.x=rand(0,w)}
       });
-      if(!reduced()&&Math.random()<(coarse()?.008:.015)){
-        shooters.push({x:rand(0,w*.85),y:rand(0,h*.5),life:0,sx:rand(5,9),sy:rand(5,9)});
+      if(Math.random()<(coarse()?.012:.024)){
+        shooters.push({x:rand(0,w*.85),y:rand(0,h*.5),life:0,sx:rand(9,16),sy:rand(9,16)});
       }
       shooters=shooters.filter(s=>{
-        s.x+=s.sx;s.y+=s.sy;s.life++;
+        s.x+=s.sx;s.y+=s.sy;s.life+=2;
         ctx.strokeStyle=`rgba(255,255,255,${Math.max(0,1-s.life/42)})`;
-        ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-s.sx*4,s.y-s.sy*4);ctx.stroke();
+        ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-s.sx*2.2,s.y-s.sy*2.2);ctx.stroke();
         return s.life<42;
       });
-      if(!reduced())raf=requestAnimationFrame(draw);
+      scheduleFrame(draw);
     };
     draw();
   }
@@ -246,8 +270,13 @@
     controls.querySelector('[data-sev-bg-toggle]')?.setAttribute('aria-expanded','false');
   });
   window.addEventListener('sevahub-language-changed',updateControl);
+  document.addEventListener('visibilitychange',()=>{
+    if(!layer)return;
+    if(document.hidden)stopAnimation();
+    else if(appliedType&&appliedType!=='grid')apply(appliedType);
+  });
 
   const observer=new MutationObserver(scan);
-  observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+  observer.observe(document.getElementById('app')||document.body,{childList:true});
   scan();
 })();
