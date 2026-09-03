@@ -1,31 +1,29 @@
-/* SevaHub interior dashboard animation layer.
-   This intentionally wraps only renderUser/renderWorker and leaves booking,
-   AI, support, payment and auth flows unchanged. */
+/* SevaHub interior dashboard visual layer.
+   Keeps the hero and service grid, but avoids continuous scroll animation work. */
 (function(){
   let previewObserver=null;
-  let scrollCleanup=null;
 
   const userCards=[
-    {id:1,serviceId:1,title:'Home Cleaning',desc:'Find trusted professionals for cleaning, deep cleaning and everyday household help.',className:'wide',thumb:'https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=1600&auto=format&fit=crop'},
-    {id:2,serviceId:3,title:'Electrician',desc:'Book verified help for switches, wiring, fans, lights and other electrical work.',className:'',thumb:'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=1600&auto=format&fit=crop'},
-    {id:3,serviceId:2,title:'Plumber',desc:'Get help with leaks, taps, pipes, fittings and urgent plumbing needs.',className:'',thumb:'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?q=80&w=1600&auto=format&fit=crop'},
-    {id:4,serviceId:5,title:'Appliance Repair',desc:'Connect with professionals for practical appliance repair and maintenance.',className:'wide',thumb:'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?q=80&w=1600&auto=format&fit=crop'}
+    {id:1,serviceId:1,title:'Home Cleaning',desc:'Find trusted professionals for cleaning, deep cleaning and everyday household help.',className:'wide',thumb:'https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=65&w=900&auto=format&fit=crop'},
+    {id:2,serviceId:3,title:'Electrician',desc:'Book verified help for switches, wiring, fans, lights and other electrical work.',className:'',thumb:'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=65&w=900&auto=format&fit=crop'},
+    {id:3,serviceId:2,title:'Plumber',desc:'Get help with leaks, taps, pipes, fittings and urgent plumbing needs.',className:'',thumb:'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?q=65&w=900&auto=format&fit=crop'},
+    {id:4,serviceId:5,title:'Appliance Repair',desc:'Connect with professionals for practical appliance repair and maintenance.',className:'wide',thumb:'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?q=65&w=900&auto=format&fit=crop'}
   ];
 
   const workerCards=[
-    {id:1,serviceId:1,title:'Home Cleaning',desc:'Take cleaning requests, review customer details and manage each job smoothly.',className:'wide',thumb:'https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=1600&auto=format&fit=crop'},
-    {id:2,serviceId:3,title:'Electrician Services',desc:'Handle electrical repair and installation requests from nearby customers.',className:'',thumb:'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=1600&auto=format&fit=crop'},
-    {id:3,serviceId:2,title:'Plumbing Services',desc:'Find plumbing jobs, respond to requests and keep your schedule organized.',className:'',thumb:'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?q=80&w=1600&auto=format&fit=crop'},
-    {id:4,serviceId:5,title:'Appliance Repair',desc:'Grow your service requests with transparent pricing and customer bargains.',className:'wide',thumb:'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?q=80&w=1600&auto=format&fit=crop'}
+    {id:1,serviceId:1,title:'Home Cleaning',desc:'Take cleaning requests, review customer details and manage each job smoothly.',className:'wide',thumb:'https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=65&w=900&auto=format&fit=crop'},
+    {id:2,serviceId:3,title:'Electrician Services',desc:'Handle electrical repair and installation requests from nearby customers.',className:'',thumb:'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=65&w=900&auto=format&fit=crop'},
+    {id:3,serviceId:2,title:'Plumbing Services',desc:'Find plumbing jobs, respond to requests and keep your schedule organized.',className:'',thumb:'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?q=65&w=900&auto=format&fit=crop'},
+    {id:4,serviceId:5,title:'Appliance Repair',desc:'Grow your service requests with transparent pricing and customer bargains.',className:'wide',thumb:'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?q=65&w=900&auto=format&fit=crop'}
   ];
 
-  function escapeHtml(value=''){
+  function esc(value=''){
     if(typeof globalThis.esc==='function')return globalThis.esc(value);
     return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   }
 
   function firstName(){
-    try{return escapeHtml(String(state?.user?.fullName||'there').split(' ')[0]||'there')}catch(e){return 'there'}
+    try{return esc(String(state?.user?.fullName||'there').split(' ')[0]||'there')}catch(e){return 'there'}
   }
 
   function heroHtml(role){
@@ -71,8 +69,8 @@
           <div class="layout-grid-overlay"></div>
           <div class="layout-grid-content">
             <span class="layout-grid-number">0${card.id}</span>
-            <h3>${escapeHtml(card.title)}</h3>
-            <p>${escapeHtml(card.desc)}</p>
+            <h3>${esc(card.title)}</h3>
+            <p>${esc(card.desc)}</p>
             <button type="button" class="btn small layout-grid-action" data-layout-action="1">${worker?'View requests':'Explore service'} →</button>
           </div>
         </article>`).join('')}
@@ -80,80 +78,35 @@
     </section>`;
   }
 
-  function cleanupObservers(){
+  function cleanupPreview(){
     try{previewObserver?.disconnect()}catch(e){}
     previewObserver=null;
-    try{scrollCleanup?.()}catch(e){}
-    scrollCleanup=null;
   }
 
-  function setupPreviewSync(role,dashboard){
+  function setupPreviewSync(dashboard){
     const source=dashboard.querySelector('.stats');
     if(!source)return;
     const sync=()=>{
-      const sourceValues=[...source.querySelectorAll('.stat b')].map(el=>String(el.textContent||'—').trim()||'—');
-      dashboard.querySelectorAll('[data-preview-stat]').forEach((el,i)=>{el.textContent=sourceValues[i]||'—'});
+      const values=[...source.querySelectorAll('.stat b')].map(el=>String(el.textContent||'—').trim()||'—');
+      dashboard.querySelectorAll('[data-preview-stat]').forEach((el,i)=>{el.textContent=values[i]||'—'});
     };
     sync();
     try{
       previewObserver=new MutationObserver(sync);
       previewObserver.observe(source,{subtree:true,childList:true,characterData:true});
     }catch(e){}
-    setTimeout(sync,300);
-    setTimeout(sync,1200);
-  }
-
-  function setupScrollAnimation(dashboard){
-    const hero=dashboard.querySelector('[data-dashboard-scroll]');
-    const card=hero?.querySelector('[data-scroll-card]');
-    if(!hero||!card)return;
-
-    const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    if(reduced){card.style.transform='none';card.style.opacity='1';return;}
-
-    let ticking=false;
-    const update=()=>{
-      if(!hero.isConnected){cleanup();return;}
-      const rect=hero.getBoundingClientRect();
-      const max=Math.max(1,hero.offsetHeight-window.innerHeight*.45);
-      const progress=Math.min(1,Math.max(0,(window.innerHeight*.12-rect.top)/max));
-      const scale=1-progress*.14;
-      const rotate=progress*3.2;
-      const translate=progress*90;
-      card.style.transform=`translateY(${translate}px) rotateX(${rotate}deg) scale(${scale})`;
-      card.style.opacity=String(1-progress*.08);
-      hero.style.setProperty('--scroll-progress',progress.toFixed(3));
-      ticking=false;
-    };
-    const onScroll=()=>{if(!ticking){requestAnimationFrame(update);ticking=true}};
-    const cleanup=()=>{
-      window.removeEventListener('scroll',onScroll);
-      window.removeEventListener('resize',onScroll);
-      if(scrollCleanup===cleanup)scrollCleanup=null;
-    };
-    scrollCleanup=cleanup;
-    window.addEventListener('scroll',onScroll,{passive:true});
-    window.addEventListener('resize',onScroll,{passive:true});
-    update();
+    setTimeout(sync,350);
   }
 
   function scrollToContent(role){
-    setTimeout(()=>{
-      const box=document.getElementById(role==='WORKER'?'workerContent':'userContent');
-      box?.scrollIntoView({behavior:'smooth',block:'start'});
-    },80);
+    setTimeout(()=>document.getElementById(role==='WORKER'?'workerContent':'userContent')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
   }
 
   function activateGrid(role,dashboard){
     dashboard.querySelectorAll('[data-grid-card]').forEach(card=>{
       const toggle=()=>card.classList.toggle('is-active');
-      card.addEventListener('click',event=>{
-        if(event.target.closest('[data-layout-action]'))return;
-        toggle();
-      });
-      card.addEventListener('keydown',event=>{
-        if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle()}
-      });
+      card.addEventListener('click',event=>{if(!event.target.closest('[data-layout-action]'))toggle()});
+      card.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();toggle()}});
       card.querySelector('[data-layout-action]')?.addEventListener('click',event=>{
         event.stopPropagation();
         const serviceId=Number(card.dataset.serviceId);
@@ -162,9 +115,7 @@
             if(typeof globalThis.workerBookings==='function')globalThis.workerBookings();
           }else if(Number.isInteger(serviceId)&&serviceId>0&&typeof globalThis.showWorkers==='function'){
             globalThis.showWorkers(serviceId);
-          }else if(typeof globalThis.userServices==='function'){
-            globalThis.userServices();
-          }
+          }else if(typeof globalThis.userServices==='function')globalThis.userServices();
           scrollToContent(role);
         }catch(e){console.warn('Layout grid action unavailable',e)}
       });
@@ -172,7 +123,7 @@
   }
 
   function enhance(role){
-    cleanupObservers();
+    cleanupPreview();
     const dashboard=document.querySelector('main.dashboard');
     if(!dashboard||dashboard.dataset.layoutgridEnhanced==='1')return;
     dashboard.dataset.layoutgridEnhanced='1';
@@ -190,18 +141,13 @@
       const intro=firstHeading?.nextElementSibling?.tagName==='P'?firstHeading.nextElementSibling:null;
       const wrap=document.createElement('div');
       wrap.className='dashboard-worker-heading';
-      if(firstHeading){
-        dashboard.insertBefore(wrap,firstHeading);
-        wrap.appendChild(firstHeading);
-        if(intro)wrap.appendChild(intro);
-      }
+      if(firstHeading){dashboard.insertBefore(wrap,firstHeading);wrap.appendChild(firstHeading);if(intro)wrap.appendChild(intro)}
       const anchor=wrap.isConnected?wrap:dashboard.firstChild;
       nodes.forEach(node=>dashboard.insertBefore(node,anchor));
     }
 
-    setupScrollAnimation(dashboard);
     activateGrid(role,dashboard);
-    setupPreviewSync(role,dashboard);
+    setupPreviewSync(dashboard);
   }
 
   function wrapRenderer(name,role){
@@ -209,7 +155,7 @@
     if(typeof original!=='function'||original.__sevahubLayoutGridWrapped)return;
     const wrapped=function(...args){
       const result=original.apply(this,args);
-      try{enhance(role)}catch(e){console.warn('Interior animation skipped',e)}
+      try{enhance(role)}catch(e){console.warn('Interior visual skipped',e)}
       return result;
     };
     wrapped.__sevahubLayoutGridWrapped=true;
@@ -218,9 +164,5 @@
 
   wrapRenderer('renderUser','USER');
   wrapRenderer('renderWorker','WORKER');
-
-  /* Covers an already-restored dashboard if another script rendered it first. */
-  try{
-    if(typeof state!=='undefined'&&state?.user&&state?.role)enhance(state.role);
-  }catch(e){}
+  try{if(typeof state!=='undefined'&&state?.user&&state?.role)enhance(state.role)}catch(e){}
 })();
