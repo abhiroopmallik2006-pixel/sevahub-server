@@ -8,6 +8,14 @@ const WELFARE_BENEFITS=[
 const COVERAGE_TYPES=new Set(['ACCIDENT','HEALTH','HOSPITALIZATION','DISABILITY','LIFE','OTHER']);
 let readyPromise=null;
 
+async function columnExists(pool,table,column){
+  const [rows]=await pool.query(
+    'SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME=? LIMIT 1',
+    [table,column]
+  );
+  return Boolean(rows.length);
+}
+
 function ensureWelfareTables(pool){
   if(!readyPromise){
     readyPromise=(async()=>{
@@ -39,6 +47,8 @@ function ensureWelfareTables(pool){
           submitted_at TIMESTAMP NULL DEFAULT NULL,
           reviewed_at TIMESTAMP NULL DEFAULT NULL,
           review_note VARCHAR(500) NULL,
+          removed_at TIMESTAMP NULL DEFAULT NULL,
+          removal_reason VARCHAR(500) NULL,
           created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           UNIQUE KEY uq_worker_insurance_worker (worker_id),
@@ -46,6 +56,12 @@ function ensureWelfareTables(pool){
           INDEX idx_worker_insurance_valid_until (valid_until)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
       `);
+      if(!(await columnExists(pool,'worker_insurance','removed_at'))){
+        await pool.query('ALTER TABLE worker_insurance ADD COLUMN removed_at TIMESTAMP NULL DEFAULT NULL');
+      }
+      if(!(await columnExists(pool,'worker_insurance','removal_reason'))){
+        await pool.query('ALTER TABLE worker_insurance ADD COLUMN removal_reason VARCHAR(500) NULL');
+      }
     })();
   }
   return readyPromise.catch(err=>{readyPromise=null;throw err});
