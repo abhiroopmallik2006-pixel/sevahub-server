@@ -83,6 +83,30 @@
   padding:24px;
   background:linear-gradient(145deg,#fff8f1,#f0e6dc);
 }
+.sevahub-macbook3d-screenbody.sevahub-macbook-scrollable{
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#bb8a64 rgba(90,61,45,.10);
+}
+.sevahub-macbook3d-screenbody.sevahub-macbook-scrollable::-webkit-scrollbar{width:8px}
+.sevahub-macbook3d-screenbody.sevahub-macbook-scrollable::-webkit-scrollbar-track{background:rgba(90,61,45,.08);border-radius:99px}
+.sevahub-macbook3d-screenbody.sevahub-macbook-scrollable::-webkit-scrollbar-thumb{background:#bb8a64;border-radius:99px}
+.sevahub-macbook-live-content{min-height:100%;padding:2px;color:var(--text)}
+.sevahub-macbook-live-content>.card.panel,
+.sevahub-macbook-live-content>.activity-report-panel,
+.sevahub-macbook-live-content>.support-panel{margin:0!important}
+.sevahub-macbook-live-content .panel{padding:16px}
+.sevahub-macbook-live-content h2{font-size:clamp(16px,1.7vw,23px)}
+.sevahub-macbook-live-content h3{font-size:clamp(13px,1.3vw,18px)}
+.sevahub-macbook-live-content p,
+.sevahub-macbook-live-content label,
+.sevahub-macbook-live-content input,
+.sevahub-macbook-live-content select,
+.sevahub-macbook-live-content textarea{font-size:clamp(10px,1vw,14px)}
+.sevahub-macbook-live-content .btn{position:relative;z-index:3}
+.sevahub-macbook-live-content .empty{padding:24px 12px}
 .sevahub-mac-line{height:10px;width:58%;margin-bottom:10px;border-radius:99px;background:#c9b6a7}
 .sevahub-mac-line.lg{height:18px;width:76%;background:#3d2b23}
 .sevahub-mac-line.sm{width:38%;height:8px}
@@ -96,6 +120,64 @@
 }
 .sevahub-mac-grid i:nth-child(2){transform:translateY(7px)}
 .sevahub-mac-grid i:nth-child(3){transform:translateY(2px)}
+.sevahub-macbook-overview-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin:0!important;
+  align-items:stretch;
+}
+.sevahub-macbook-overview-grid>.card.panel{
+  min-width:0;
+  min-height:150px;
+  margin:0!important;
+  padding:18px 16px!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  border-radius:15px!important;
+  background:rgba(255,250,244,.88)!important;
+  box-shadow:0 12px 26px rgba(72,43,28,.10)!important;
+  color:#433a31!important;
+  overflow:hidden;
+}
+.sevahub-macbook-overview-grid>.card.panel h2{
+  margin:0 0 16px!important;
+  font-family:Georgia,'Times New Roman',serif;
+  font-size:clamp(15px,1.55vw,23px)!important;
+  line-height:1.12!important;
+  color:#433a31!important;
+}
+.sevahub-macbook-overview-grid>.card.panel p{
+  margin:0 0 13px!important;
+  font-size:clamp(10px,1.03vw,15px)!important;
+  line-height:1.38!important;
+  color:#4d453e!important;
+}
+.sevahub-macbook-overview-grid>.card.panel .muted{color:#7b726a!important}
+.sevahub-macbook-overview-grid>.card.panel .price{font-size:clamp(16px,1.5vw,22px)!important;color:#5d5a35!important}
+.sevahub-macbook-services-panel{
+  margin:0!important;
+  padding:4px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+.sevahub-macbook-services-panel>h2{margin:0 0 12px!important;font-size:17px!important;color:#78452d!important}
+.sevahub-macbook-services-panel>.grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important}
+.sevahub-macbook-services-panel .service-card{
+  min-width:0;
+  min-height:176px;
+  margin:0!important;
+  padding:13px!important;
+  border-radius:10px!important;
+  background:rgba(255,252,248,.94)!important;
+}
+.sevahub-macbook-services-panel .service-icon{font-size:20px!important}
+.sevahub-macbook-services-panel .service-card h3{margin:8px 0!important;font-size:12px!important;line-height:1.2!important}
+.sevahub-macbook-services-panel .service-card p{font-size:9px!important;line-height:1.35!important}
+.sevahub-macbook-services-panel .service-card .price{font-size:15px!important;margin:8px 0!important}
+.sevahub-macbook-services-panel .service-card>.btn{font-size:7px!important;padding-top:7px!important;position:relative;z-index:2}
 .sevahub-macbook3d-base{
   position:relative;
   z-index:1;
@@ -139,6 +221,10 @@
 .dark .sevahub-mac-line,body.dark .sevahub-mac-line{background:#55483f}
 .dark .sevahub-mac-line.lg,body.dark .sevahub-mac-line.lg{background:#eee5de}
 .dark .sevahub-macbook3d-base,body.dark .sevahub-macbook3d-base{background:linear-gradient(#716b68,#3e3a38)}
+.dark .sevahub-macbook-overview-grid>.card.panel,body.dark .sevahub-macbook-overview-grid>.card.panel{background:rgba(31,27,24,.9)!important;border-color:#4a4038!important;color:#f4ece5!important}
+.dark .sevahub-macbook-overview-grid>.card.panel h2,body.dark .sevahub-macbook-overview-grid>.card.panel h2,.dark .sevahub-macbook-overview-grid>.card.panel p,body.dark .sevahub-macbook-overview-grid>.card.panel p{color:#f4ece5!important}
+.dark .sevahub-macbook-services-panel .service-card,body.dark .sevahub-macbook-services-panel .service-card{background:rgba(31,27,24,.94)!important}
+.dark .sevahub-macbook-services-panel>h2,body.dark .sevahub-macbook-services-panel>h2{color:#ffbd88!important}
 
 @media(max-width:800px){
   .sevahub-macbook3d-section{grid-template-columns:1fr;min-height:0;padding-top:20px}
@@ -151,6 +237,15 @@
   .sevahub-macbook3d-screen{border-width:5px;border-radius:12px 12px 8px 8px}
   .sevahub-macbook3d-screenbody{padding:16px}
   .sevahub-mac-grid i{height:58px}
+  .sevahub-macbook-overview-grid{gap:6px!important}
+  .sevahub-macbook-overview-grid>.card.panel{min-height:108px;padding:10px 8px!important;border-radius:9px!important}
+  .sevahub-macbook-overview-grid>.card.panel h2{margin-bottom:8px!important;font-size:11px!important}
+  .sevahub-macbook-overview-grid>.card.panel p{margin-bottom:6px!important;font-size:8px!important}
+  .sevahub-macbook-overview-grid>.card.panel .price{font-size:12px!important}
+  .sevahub-macbook-services-panel>.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  .sevahub-macbook-services-panel .service-card{min-height:150px;padding:10px!important}
+  .sevahub-macbook-live-content .grid-3,.sevahub-macbook-live-content .grid-4{grid-template-columns:1fr!important}
+  .sevahub-macbook-live-content .split{align-items:flex-start;flex-direction:column}
   .sevahub-fx-3d-card:hover{box-shadow:inherit!important}
 }
 @media (prefers-reduced-motion:reduce){

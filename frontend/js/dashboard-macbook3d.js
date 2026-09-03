@@ -84,6 +84,28 @@
     </section>`;
   }
 
+  function mountActiveView(box,section,role,key){
+    if(!section)return;
+    const screenBody=section.querySelector('.sevahub-macbook3d-screenbody');
+    if(!screenBody)return;
+    const contentNodes=Array.from(box.children).filter(node=>node!==section);
+    if(!contentNodes.length)return;
+
+    const liveContent=document.createElement('div');
+    liveContent.className=`sevahub-macbook-live-content sevahub-macbook-live-${role.toLowerCase()} sevahub-macbook-live-${key}`;
+    contentNodes.forEach(node=>liveContent.appendChild(node));
+    screenBody.replaceChildren(liveContent);
+    screenBody.classList.add('sevahub-macbook-scrollable');
+
+    if(role==='WORKER'&&key==='overview'){
+      liveContent.querySelector('.grid.grid-3')?.classList.add('sevahub-macbook-overview-grid');
+    }
+    if(role==='USER'&&key==='services'){
+      const servicesPanel=liveContent.querySelector('.card.panel');
+      if(servicesPanel)servicesPanel.classList.add('sevahub-macbook-services-panel');
+    }
+  }
+
   function enhanceCards(box){
     box.querySelectorAll('.card.panel,.service-card,.worker-card,.offer,.gem-block,.support-ticket-card').forEach(card=>{
       if(card.closest('[data-sevahub-macbook3d]')||card.dataset.sevahubTiltReady==='1')return;
@@ -145,7 +167,10 @@
       existing.outerHTML=macbookHTML(role,currentKey);
     }
     const live=box.querySelector(':scope > [data-sevahub-macbook3d]');
-    if(live)live.dataset.viewKey=currentKey;
+    if(live){
+      live.dataset.viewKey=currentKey;
+      mountActiveView(box,live,role,currentKey);
+    }
     enhanceCards(box);
     scheduleViewportUpdate();
   }
