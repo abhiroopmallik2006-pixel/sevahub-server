@@ -23,7 +23,7 @@ router.get('/me',auth,authorize('WORKER'),async(req,res,next)=>{try{
 
   const [[welfareRows],[insuranceRows]]=await Promise.all([
     pool.query(`SELECT status,member_id,requested_at,reviewed_at,review_note FROM worker_welfare WHERE worker_id=? LIMIT 1`,[worker.id]),
-    pool.query(`SELECT provider_name,policy_number,coverage_type,valid_until,status,submitted_at,reviewed_at,review_note FROM worker_insurance WHERE worker_id=? LIMIT 1`,[worker.id])
+    pool.query(`SELECT provider_name,policy_number,coverage_type,valid_until,status,submitted_at,reviewed_at,review_note,removed_at,removal_reason FROM worker_insurance WHERE worker_id=? LIMIT 1`,[worker.id])
   ]);
 
   const welfare=welfareRows[0]||{};
@@ -48,7 +48,9 @@ router.get('/me',auth,authorize('WORKER'),async(req,res,next)=>{try{
         status:effectiveInsuranceStatus(insurance),
         submittedAt:insurance.submitted_at||null,
         reviewedAt:insurance.reviewed_at||null,
-        reviewNote:insurance.review_note||null
+        reviewNote:insurance.review_note||null,
+        removedAt:insurance.removed_at||null,
+        removalReason:insurance.removal_reason||null
       }
     }
   });
@@ -87,9 +89,9 @@ router.put('/insurance',auth,authorize('WORKER'),async(req,res,next)=>{try{
   if(!Number.isFinite(expiry.getTime())||expiry.getTime()<=Date.now())return res.status(400).json({success:false,message:'Policy expiry date must be in the future'});
 
   await pool.query(`
-    INSERT INTO worker_insurance(worker_id,provider_name,policy_number,coverage_type,valid_until,status,submitted_at,reviewed_at,review_note)
-    VALUES(?,?,?,?,?,'PENDING',CURRENT_TIMESTAMP,NULL,NULL)
-    ON DUPLICATE KEY UPDATE provider_name=VALUES(provider_name),policy_number=VALUES(policy_number),coverage_type=VALUES(coverage_type),valid_until=VALUES(valid_until),status='PENDING',submitted_at=CURRENT_TIMESTAMP,reviewed_at=NULL,review_note=NULL
+    INSERT INTO worker_insurance(worker_id,provider_name,policy_number,coverage_type,valid_until,status,submitted_at,reviewed_at,review_note,removed_at,removal_reason)
+    VALUES(?,?,?,?,?,'PENDING',CURRENT_TIMESTAMP,NULL,NULL,NULL,NULL)
+    ON DUPLICATE KEY UPDATE provider_name=VALUES(provider_name),policy_number=VALUES(policy_number),coverage_type=VALUES(coverage_type),valid_until=VALUES(valid_until),status='PENDING',submitted_at=CURRENT_TIMESTAMP,reviewed_at=NULL,review_note=NULL,removed_at=NULL,removal_reason=NULL
   `,[worker.id,providerName,policyNumber,coverageType,validUntil]);
   res.json({success:true,data:{status:'PENDING'}});
 }catch(e){next(e)}});
