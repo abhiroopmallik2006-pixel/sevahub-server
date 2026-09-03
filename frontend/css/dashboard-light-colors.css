@@ -1,0 +1,98 @@
+/* SevaHub light-mode dashboard background palette.
+   Light theme only: dark-mode background behavior remains untouched. */
+
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex{
+  background:
+    radial-gradient(circle at 18% 18%,rgba(255,126,62,.30),transparent 30%),
+    radial-gradient(circle at 82% 24%,rgba(255,75,122,.20),transparent 28%),
+    radial-gradient(circle at 64% 82%,rgba(255,197,74,.24),transparent 30%),
+    linear-gradient(135deg,#fff8f1 0%,#ffe4cd 48%,#fff1e6 100%);
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex .sev-dashboard-bg-canvas{
+  filter:hue-rotate(285deg) saturate(1.5) brightness(1.22) contrast(1.05);
+  opacity:.92;
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex::after{
+  background:
+    radial-gradient(circle at 50% 45%,rgba(255,255,255,.05),rgba(255,244,235,.20) 72%),
+    linear-gradient(135deg,rgba(255,128,62,.06),rgba(255,201,94,.04));
+}
+
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy{
+  background:
+    radial-gradient(circle at 14% 20%,rgba(255,132,72,.27),transparent 28%),
+    radial-gradient(circle at 84% 18%,rgba(255,92,118,.18),transparent 27%),
+    radial-gradient(circle at 65% 82%,rgba(255,203,96,.22),transparent 30%),
+    linear-gradient(160deg,#fff8f2 0%,#ffd9bd 52%,#fff0e2 100%);
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy .sev-dashboard-bg-canvas{
+  filter:saturate(1.65) brightness(1.24) contrast(1.04);
+  opacity:.94;
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy::after{
+  background:linear-gradient(145deg,rgba(255,244,235,.12),rgba(255,178,109,.08));
+}
+
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-stars{
+  background:
+    radial-gradient(circle at 20% 24%,rgba(255,151,84,.25),transparent 25%),
+    radial-gradient(circle at 80% 18%,rgba(203,120,255,.17),transparent 27%),
+    radial-gradient(circle at 70% 78%,rgba(255,105,143,.15),transparent 27%),
+    linear-gradient(150deg,#fff8f1 0%,#ffe3d4 52%,#f8e8ff 100%);
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-stars::after{
+  background:linear-gradient(145deg,rgba(255,248,241,.08),rgba(255,223,200,.10));
+}
+body:not(.dark).sev-dashboard-bg-active .sev-falling-star{
+  background:#ff8a4c;
+  box-shadow:0 0 9px rgba(255,116,54,.82),0 0 22px rgba(255,175,87,.40);
+}
+body:not(.dark).sev-dashboard-bg-active .sev-falling-star::after{
+  background:linear-gradient(90deg,rgba(255,143,71,0),rgba(255,129,63,.80),rgba(255,245,221,.95));
+}
+
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-grid{
+  background:
+    radial-gradient(circle at 18% 18%,rgba(255,135,65,.20),transparent 28%),
+    radial-gradient(circle at 82% 78%,rgba(255,196,88,.19),transparent 30%),
+    linear-gradient(135deg,#fffaf5 0%,#ffe8d4 50%,#fff5ea 100%);
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-grid::after{
+  background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,222,193,.10));
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-grid-lines{
+  background-image:
+    linear-gradient(to right,rgba(185,84,23,.16) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(185,84,23,.16) 1px,transparent 1px);
+  background-size:40px 40px;
+  opacity:.80;
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-grid-fade{
+  background:radial-gradient(ellipse at center,rgba(255,255,255,0) 8%,rgba(255,244,234,.30) 70%,rgba(255,237,220,.58) 100%);
+}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-dots{
+  background-image:radial-gradient(rgba(255,120,45,.55) 1.2px,transparent 1.5px);
+  background-size:24px 24px;
+  opacity:.55;
+}
+
+/* Make the four remaining selector previews reflect the richer light palette too. */
+body:not(.dark) .sev-bg-vortex{
+  background:radial-gradient(circle at 30% 30%,#ff8b50 0 8%,transparent 28%),linear-gradient(135deg,#ffe4ca,#ffb36f);
+}
+body:not(.dark) .sev-bg-wavy{
+  background:linear-gradient(155deg,#ffcb9f 0 23%,#ff874f 24% 42%,#ffd39f 43% 62%,#f46f69 63% 80%,#ffe4c6 81%);
+}
+body:not(.dark) .sev-bg-stars{
+  background:radial-gradient(circle at 22% 32%,#ff9b5d 0 2px,transparent 3px),radial-gradient(circle at 72% 68%,#d68cff 0 2px,transparent 3px),linear-gradient(135deg,#ffe4cf,#f7ddff);
+}
+body:not(.dark) .sev-bg-grid{
+  background-image:radial-gradient(#ff7b32 1px,transparent 1px),linear-gradient(rgba(185,84,23,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(185,84,23,.18) 1px,transparent 1px);
+  background-color:#fff0e2;
+  background-size:12px 12px,12px 12px,12px 12px;
+}
+
+@media(prefers-reduced-motion:reduce){
+  body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex .sev-dashboard-bg-canvas,
+  body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy .sev-dashboard-bg-canvas{filter:saturate(1.35) brightness(1.15)}
+}
