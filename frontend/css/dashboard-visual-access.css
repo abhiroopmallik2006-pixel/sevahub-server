@@ -1,5 +1,11 @@
 /* Full-size access below the live MacBook preview. */
-.sevahub-macbook-below-content{width:100%;margin:10px 0 24px;position:relative;z-index:2}
+.sevahub-macbook-below-content{
+  width:100%;
+  margin:10px 0 24px;
+  position:relative;
+  z-index:2;
+  contain:layout style;
+}
 .sevahub-macbook-below-content>.card.panel,
 .sevahub-macbook-below-content>.activity-report-panel,
 .sevahub-macbook-below-content>.support-panel{margin-bottom:20px}
