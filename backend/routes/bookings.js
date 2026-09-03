@@ -3,15 +3,26 @@ const crypto=require('crypto');
 const pool=require('../config');
 const {auth,authorize}=require('../middleware/auth');
 const {notify}=require('../utils/notifications');
+const {assertWorkerActive,moderationByWorker}=require('../utils/workerModeration');
 const router=express.Router();
 const hash=pin=>crypto.createHash('sha256').update(String(pin)).digest('hex');
 const makeCompletionOtp=()=>String(crypto.randomInt(0,1000000)).padStart(6,'0');
 const OTP_TTL_MINUTES=10;
 const fields='b.id,b.user_id,b.worker_id,b.service_id,b.booking_date,b.booking_time,b.address,b.instructions,b.original_price,b.final_price,b.payment_method,b.status,b.created_at,b.updated_at,b.completion_pin,b.customer_tpin,b.tpin_attempts,b.tpin_expires_at';
 
+async function blockRestrictedWorker(userId,res){
+ const state=await assertWorkerActive(userId,pool);
+ if(state.ok)return false;
+ res.status(state.moderation?403:404).json({success:false,message:state.message});
+ return true;
+}
+
 router.post('/',auth,authorize('USER'),async(req,res,next)=>{try{
  const {workerId,serviceId,bookingDate,bookingTime,address,instructions='',paymentMethod='Cash'}=req.body;
  if(!workerId||!serviceId||!bookingDate||!bookingTime||!address)return res.status(400).json({success:false,message:'Complete booking details are required'});
+ const moderation=await moderationByWorker(workerId,pool);
+ if(!moderation)return res.status(404).json({success:false,message:'Worker not found'});
+ if(moderation.isBanned)return res.status(403).json({success:false,message:'This worker is currently unavailable for new service bookings'});
  const [prices]=await pool.query('SELECT price FROM worker_services WHERE worker_id=? AND service_id=?',[workerId,serviceId]);
  if(!prices.length)return res.status(400).json({success:false,message:'Worker does not provide this service'});
  const [workers]=await pool.query('SELECT user_id FROM workers WHERE id=?',[workerId]);
@@ -24,7 +35,6 @@ router.get('/',auth,async(req,res,next)=>{try{
  const worker=req.user.role==='WORKER'; const sql=worker?`SELECT ${fields},u.full_name customer_name,s.name service_name FROM bookings b JOIN workers w ON w.id=b.worker_id JOIN users u ON u.id=b.user_id JOIN services s ON s.id=b.service_id WHERE w.user_id=? ORDER BY b.created_at DESC`:`SELECT ${fields},u.full_name worker_user_name,s.name service_name FROM bookings b JOIN workers w ON w.id=b.worker_id JOIN users u ON u.id=w.user_id JOIN services s ON s.id=b.service_id WHERE b.user_id=? ORDER BY b.created_at DESC`;
  const [rows]=await pool.query(sql,[req.user.id]); res.json({success:true,data:rows.map(r=>{delete r.completion_pin;delete r.tpin_attempts;if(worker){delete r.customer_tpin;delete r.tpin_expires_at}else if(r.tpin_expires_at && new Date(r.tpin_expires_at).getTime()<=Date.now()){r.customer_tpin=null;r.tpin_expires_at=null}return r})});
 }catch(e){next(e)}});
-
 
 router.get('/history',auth,async(req,res,next)=>{try{
  const dateOk=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''));
@@ -61,11 +71,13 @@ router.get('/history',auth,async(req,res,next)=>{try{
 }catch(e){next(e)}});
 
 router.post('/:id/start',auth,authorize('WORKER'),async(req,res,next)=>{try{
+ if(await blockRestrictedWorker(req.user.id,res))return;
  const [r]=await pool.query(`UPDATE bookings b JOIN workers w ON w.id=b.worker_id SET b.status='IN_PROGRESS' WHERE b.id=? AND w.user_id=? AND b.status='ACCEPTED'`,[req.params.id,req.user.id]);
  if(!r.affectedRows)return res.status(400).json({success:false,message:'Only accepted assigned bookings can be started'});res.json({success:true,message:'Service started'});
 }catch(e){next(e)}});
 
 router.post('/:id/request-completion-otp',auth,authorize('WORKER'),async(req,res,next)=>{try{
+ if(await blockRestrictedWorker(req.user.id,res))return;
  const [rows]=await pool.query(`SELECT b.id,b.user_id,b.status FROM bookings b JOIN workers w ON w.id=b.worker_id WHERE b.id=? AND w.user_id=?`,[req.params.id,req.user.id]);
  if(!rows.length)return res.status(404).json({success:false,message:'Booking not found'});
  const b=rows[0];
@@ -79,6 +91,7 @@ router.post('/:id/request-completion-otp',auth,authorize('WORKER'),async(req,res
 }catch(e){next(e)}});
 
 router.post('/:id/complete',auth,authorize('WORKER'),async(req,res,next)=>{
+ try{if(await blockRestrictedWorker(req.user.id,res))return}catch(e){return next(e)}
  const conn=await pool.getConnection();try{
   const tpin=String(req.body.tpin||req.body.pin||'');if(!/^\d{6}$/.test(tpin))return res.status(400).json({success:false,message:'Enter the 6-digit completion OTP shown in the customer app'});
   const [rows]=await conn.query(`SELECT b.* FROM bookings b JOIN workers w ON w.id=b.worker_id WHERE b.id=? AND w.user_id=? FOR UPDATE`,[req.params.id,req.user.id]);if(!rows.length)return res.status(404).json({success:false,message:'Booking not found'});const b=rows[0];
