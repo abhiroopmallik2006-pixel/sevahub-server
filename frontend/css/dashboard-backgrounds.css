@@ -35,7 +35,7 @@ body.sev-dashboard-bg-active #app.app{background:transparent!important}
 .sev-dashboard-bg-grid-fade{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 10%,rgba(255,255,255,.92) 78%)}
 .sev-dashboard-bg-dots{position:absolute;inset:0;background-image:radial-gradient(#c9b6a7 1px,transparent 1px);background-size:24px 24px;opacity:.35}
 
-body.dark .sev-dashboard-bg-layer{background:#07090c}
+body.dark .sev-dashboard-bg-layer{background-color:#07090c}
 body.dark .sev-dashboard-bg-layer::after{background:rgba(7,9,12,.74)}
 body.dark .sev-dashboard-bg-layer.sev-dashboard-bg-photo::after{background:rgba(7,9,12,.65)}
 body.dark .sev-dashboard-bg-vortex::after{background:rgba(7,16,11,.70)}
