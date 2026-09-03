@@ -11,7 +11,7 @@
   };
 
   function lang(){try{return localStorage.getItem('sevahub_language_v1')==='hi'?'hi':'en'}catch(e){return 'en'}}
-  function safe(v=''){try{return typeof esc==='function'?esc(v):String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]))}catch(e){return String(v)}}
+  function safe(v=''){try{return typeof esc==='function'?esc(v):String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}catch(e){return String(v)}}
   function moneyValue(v){try{return typeof money==='function'?money(v):`₹${Number(v||0).toLocaleString('en-IN')}`}catch(e){return `₹${Number(v||0)}`}}
   async function profileApi(path,options={}){
     if(typeof api==='function')return api(path,options);
