@@ -1,8 +1,9 @@
 /* SevaHub dashboard background selector.
+   Eight options: four lightweight animated patterns + four static photo backgrounds.
    Additive only: does not replace renderers, routes, booking, AI, support or payment logic. */
 (function(){
   const KEY='sevahub_dashboard_background';
-  const TYPES=new Set(['vortex','wavy','stars','grid']);
+  const TYPES=new Set(['vortex','wavy','stars','grid','ivory','peach','silver','neon']);
   const coarseMedia=window.matchMedia?.('(pointer: coarse)');
   const reducedMedia=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const coarse=()=>Boolean(coarseMedia?.matches);
@@ -24,14 +25,16 @@
       vortex:'Vortex Background',
       wavy:'Wavy Background',
       stars:'Shooting Stars + Stars',
-      grid:'Grid + Dot Background'
+      grid:'Grid + Dot Background',
+      ivory:'Ivory Infinity',peach:'Peach Contours',silver:'Silver Geometry',neon:'Neon Orbit'
     },
     hi:{
       toggle:'🎨 बैकग्राउंड बदलें',
       vortex:'वॉर्टेक्स बैकग्राउंड',
       wavy:'वेवी बैकग्राउंड',
       stars:'शूटिंग स्टार्स + तारे',
-      grid:'ग्रिड + डॉट बैकग्राउंड'
+      grid:'ग्रिड + डॉट बैकग्राउंड',
+      ivory:'आइवरी इन्फिनिटी',peach:'पीच कंटूर्स',silver:'सिल्वर ज्योमेट्री',neon:'निऑन ऑर्बिट'
     }
   };
 
@@ -167,11 +170,11 @@
       if(Math.random()<(coarse()?.012:.024)){
         shooters.push({x:rand(0,w*.85),y:rand(0,h*.5),life:0,sx:rand(9,16),sy:rand(9,16)});
       }
-      shooters=shooters.filter(s=>{
-        s.x+=s.sx;s.y+=s.sy;s.life+=2;
-        ctx.strokeStyle=`rgba(255,255,255,${Math.max(0,1-s.life/42)})`;
-        ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x-s.sx*2.2,s.y-s.sy*2.2);ctx.stroke();
-        return s.life<42;
+      shooters=shooters.filter(sh=>{
+        sh.x+=sh.sx;sh.y+=sh.sy;sh.life+=2;
+        ctx.strokeStyle=`rgba(255,255,255,${Math.max(0,1-sh.life/42)})`;
+        ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(sh.x,sh.y);ctx.lineTo(sh.x-sh.sx*2.2,sh.y-sh.sy*2.2);ctx.stroke();
+        return sh.life<42;
       });
       scheduleFrame(draw);
     };
@@ -189,7 +192,8 @@
       layer.innerHTML='<div class="sev-dashboard-bg-grid-lines"></div><div class="sev-dashboard-bg-grid-fade"></div><div class="sev-dashboard-bg-dots"></div>';
     }else if(type==='vortex')runVortex(layer);
     else if(type==='wavy')runWavy(layer);
-    else runStars(layer);
+    else if(type==='stars')runStars(layer);
+    else layer.classList.add('sev-dashboard-bg-photo');
     updateControl();
   }
 
@@ -224,7 +228,7 @@
     root.innerHTML=`
       <button type="button" class="sev-dashboard-bg-toggle" data-sev-bg-toggle aria-expanded="false">${c.toggle}</button>
       <div class="sev-dashboard-bg-menu" data-sev-bg-menu>
-        ${['vortex','wavy','stars','grid'].map(type=>`<button type="button" class="sev-dashboard-bg-option" data-sev-bg-option="${type}" aria-pressed="false"><span class="sev-bg-option-preview sev-bg-${type}"></span><span data-sev-bg-label>${c[type]}</span><b data-sev-bg-check></b></button>`).join('')}
+        ${Array.from(TYPES).map(type=>`<button type="button" class="sev-dashboard-bg-option" data-sev-bg-option="${type}" aria-pressed="false"><span class="sev-bg-option-preview sev-bg-${type}"></span><span data-sev-bg-label>${c[type]}</span><b data-sev-bg-check></b></button>`).join('')}
       </div>`;
     root.querySelector('[data-sev-bg-toggle]')?.addEventListener('click',()=>{
       const menu=root.querySelector('[data-sev-bg-menu]');
@@ -273,7 +277,7 @@
   document.addEventListener('visibilitychange',()=>{
     if(!layer)return;
     if(document.hidden)stopAnimation();
-    else if(appliedType&&appliedType!=='grid')apply(appliedType);
+    else if(appliedType&&['vortex','wavy','stars'].includes(appliedType))apply(appliedType);
   });
 
   const observer=new MutationObserver(scan);
