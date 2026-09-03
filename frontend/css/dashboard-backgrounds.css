@@ -1,11 +1,9 @@
 /* Selectable dashboard backgrounds. Scoped to logged-in dashboard only. */
-.sev-dashboard-bg-layer.sev-dashboard-bg-photo{background-size:cover;background-position:center;background-repeat:no-repeat}
+.sev-dashboard-bg-layer.sev-dashboard-bg-photo{background-size:cover;background-position:center;background-repeat:no-repeat;filter:none!important}
 .sev-dashboard-bg-layer.sev-dashboard-bg-ivory,.sev-bg-ivory{background-image:url('../images/backgrounds/ivory-infinity.jpeg')}
 .sev-dashboard-bg-layer.sev-dashboard-bg-peach,.sev-bg-peach{background-image:url('../images/backgrounds/peach-contours.jpeg')}
 .sev-dashboard-bg-layer.sev-dashboard-bg-silver,.sev-bg-silver{background-image:url('../images/backgrounds/silver-geometry.jpeg')}
 .sev-dashboard-bg-layer.sev-dashboard-bg-neon,.sev-bg-neon{background-image:url('../images/backgrounds/neon-orbit.jpeg')}
-.sev-dashboard-bg-layer.sev-dashboard-bg-photo::after{background:rgba(255,248,242,.35)}
-body.dark .sev-dashboard-bg-layer.sev-dashboard-bg-photo::after{background:rgba(7,9,12,.65)}
 .sev-bg-ivory,.sev-bg-peach,.sev-bg-silver,.sev-bg-neon{background-size:cover;background-position:center}
 .sev-dashboard-bg-controls .sev-dashboard-bg-menu{max-height:calc(100dvh - 150px);overflow-y:auto}
 .sev-dashboard-bg-active #app{position:relative;z-index:1}
@@ -50,6 +48,10 @@ body.dark .sev-dashboard-bg-grid::after{background:rgba(7,9,12,.68)}
 body.dark .sev-dashboard-bg-grid-lines{background-image:linear-gradient(to right,#262626 1px,transparent 1px),linear-gradient(to bottom,#262626 1px,transparent 1px)}
 body.dark .sev-dashboard-bg-grid-fade{background:radial-gradient(ellipse at center,transparent 10%,rgba(7,9,12,.9) 78%)}
 body.dark .sev-dashboard-bg-dots{background-image:radial-gradient(#555 1px,transparent 1px);opacity:.25}
+
+/* Photo backgrounds stay crisp: these rules intentionally come after the generic overlays. */
+.sev-dashboard-bg-layer.sev-dashboard-bg-photo::after{background:rgba(255,248,242,.07)}
+body.dark .sev-dashboard-bg-layer.sev-dashboard-bg-photo::after{background:rgba(7,9,12,.16)}
 
 @media(max-width:700px){.sev-dashboard-bg-controls{right:12px;top:72px}.sev-dashboard-bg-toggle{font-size:12px;padding:9px 11px}.sev-dashboard-bg-menu{width:225px}}
 @media(prefers-reduced-motion:reduce){.sev-dashboard-bg-toggle{transition:none}.sev-falling-star{animation:none;top:calc((var(--star-x)*2.71%));opacity:.38}.sev-falling-star::after{display:none}}
