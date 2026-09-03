@@ -1,5 +1,6 @@
 /* SevaHub light-mode dashboard background palette.
-   Light theme only: dark-mode background behavior remains untouched. */
+   Light theme only: dark-mode background behavior remains untouched.
+   Colors are handled without full-screen CSS filters to keep animation GPU cost low. */
 
 body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex{
   background:
@@ -8,10 +9,7 @@ body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex{
     radial-gradient(circle at 64% 82%,rgba(255,197,74,.24),transparent 30%),
     linear-gradient(135deg,#fff8f1 0%,#ffe4cd 48%,#fff1e6 100%);
 }
-body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex .sev-dashboard-bg-canvas{
-  filter:hue-rotate(285deg) saturate(1.5) brightness(1.22) contrast(1.05);
-  opacity:.92;
-}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex .sev-dashboard-bg-canvas{opacity:.92}
 body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex::after{
   background:
     radial-gradient(circle at 50% 45%,rgba(255,255,255,.05),rgba(255,244,235,.20) 72%),
@@ -25,10 +23,7 @@ body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy{
     radial-gradient(circle at 65% 82%,rgba(255,203,96,.22),transparent 30%),
     linear-gradient(160deg,#fff8f2 0%,#ffd9bd 52%,#fff0e2 100%);
 }
-body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy .sev-dashboard-bg-canvas{
-  filter:saturate(1.65) brightness(1.24) contrast(1.04);
-  opacity:.94;
-}
+body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy .sev-dashboard-bg-canvas{opacity:.94}
 body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy::after{
   background:linear-gradient(145deg,rgba(255,244,235,.12),rgba(255,178,109,.08));
 }
@@ -45,7 +40,7 @@ body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-stars::after{
 }
 body:not(.dark).sev-dashboard-bg-active .sev-falling-star{
   background:#ff8a4c;
-  box-shadow:0 0 9px rgba(255,116,54,.82),0 0 22px rgba(255,175,87,.40);
+  box-shadow:0 0 8px rgba(255,116,54,.72),0 0 16px rgba(255,175,87,.30);
 }
 body:not(.dark).sev-dashboard-bg-active .sev-falling-star::after{
   background:linear-gradient(90deg,rgba(255,143,71,0),rgba(255,129,63,.80),rgba(255,245,221,.95));
@@ -76,7 +71,7 @@ body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-dots{
   opacity:.55;
 }
 
-/* Make the four remaining selector previews reflect the richer light palette too. */
+/* Selector previews. */
 body:not(.dark) .sev-bg-vortex{
   background:radial-gradient(circle at 30% 30%,#ff8b50 0 8%,transparent 28%),linear-gradient(135deg,#ffe4ca,#ffb36f);
 }
@@ -90,9 +85,4 @@ body:not(.dark) .sev-bg-grid{
   background-image:radial-gradient(#ff7b32 1px,transparent 1px),linear-gradient(rgba(185,84,23,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(185,84,23,.18) 1px,transparent 1px);
   background-color:#fff0e2;
   background-size:12px 12px,12px 12px,12px 12px;
-}
-
-@media(prefers-reduced-motion:reduce){
-  body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-vortex .sev-dashboard-bg-canvas,
-  body:not(.dark).sev-dashboard-bg-active .sev-dashboard-bg-wavy .sev-dashboard-bg-canvas{filter:saturate(1.35) brightness(1.15)}
 }
