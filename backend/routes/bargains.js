@@ -2,6 +2,7 @@ const express=require('express');
 const pool=require('../config');
 const {auth}=require('../middleware/auth');
 const {notify}=require('../utils/notifications');
+const {assertWorkerActive}=require('../utils/workerModeration');
 const router=express.Router();
 
 async function booking(id,userId){
@@ -14,6 +15,14 @@ async function booking(id,userId){
   return r[0];
 }
 
+async function blockRestrictedWorker(req,res){
+  if(req.user.role!=='WORKER')return false;
+  const state=await assertWorkerActive(req.user.id,pool);
+  if(state.ok)return false;
+  res.status(state.moderation?403:404).json({success:false,message:state.message});
+  return true;
+}
+
 router.get('/:bookingId',auth,async(req,res,next)=>{
   try{
     const b=await booking(req.params.bookingId,req.user.id);
@@ -23,9 +32,9 @@ router.get('/:bookingId',auth,async(req,res,next)=>{
   }catch(e){next(e)}
 });
 
-// Start a fresh offer only when there is no active pending offer.
 router.post('/',auth,async(req,res,next)=>{
   try{
+    if(await blockRestrictedWorker(req,res))return;
     const b=await booking(req.body.bookingId,req.user.id),amount=Number(req.body.amount);
     if(!b)return res.status(404).json({success:false,message:'Booking not found'});
     if(!Number.isFinite(amount)||amount<=0)return res.status(400).json({success:false,message:'Enter a valid amount'});
@@ -52,8 +61,8 @@ router.post('/',auth,async(req,res,next)=>{
   }catch(e){next(e)}
 });
 
-// Receiver can ACCEPT, REJECT, or COUNTER an active offer.
 router.put('/:id/respond',auth,async(req,res,next)=>{
+  try{if(await blockRestrictedWorker(req,res))return}catch(e){return next(e)}
   const conn=await pool.getConnection();
   try{
     const action=String(req.body.action||'').toUpperCase();
@@ -102,7 +111,6 @@ router.put('/:id/respond',auth,async(req,res,next)=>{
       return res.json({success:true,message:'Offer rejected; either side may send another proposal.'});
     }
 
-    // COUNTER: close the offer being answered and atomically create the reply offer.
     await conn.query("UPDATE bargain_offers SET status='COUNTERED',responded_at=NOW() WHERE id=?",[o.id]);
     const message=String(req.body.message||'Counter offer').slice(0,500);
     const [inserted]=await conn.query(
