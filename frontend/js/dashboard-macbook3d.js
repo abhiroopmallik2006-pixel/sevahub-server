@@ -1,9 +1,14 @@
 /* SevaHub 3D MacBook tab animation.
    Purely additive: observes dashboard content and never replaces app functions. */
 (function(){
-  const REDUCED=()=>window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const reducedMedia=window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const coarseMedia=window.matchMedia?.('(pointer:coarse)');
+  const REDUCED=()=>Boolean(reducedMedia?.matches);
+  const COARSE=()=>Boolean(coarseMedia?.matches);
   let bodyObserver=null;
   let rafPending=false;
+  let viewportRafPending=false;
+  const installedBoxes={USER:null,WORKER:null};
 
   const copyMap={
     USER:{
@@ -84,16 +89,27 @@
       if(card.closest('[data-sevahub-macbook3d]')||card.dataset.sevahubTiltReady==='1')return;
       card.dataset.sevahubTiltReady='1';
       card.classList.add('sevahub-fx-3d-card');
+      let tiltRaf=0;
+      let clientX=0;
+      let clientY=0;
       card.addEventListener('pointermove',event=>{
-        if(REDUCED()||window.matchMedia?.('(pointer:coarse)')?.matches)return;
-        const rect=card.getBoundingClientRect();
-        if(!rect.width||!rect.height)return;
-        const x=(event.clientX-rect.left)/rect.width-.5;
-        const y=(event.clientY-rect.top)/rect.height-.5;
-        card.style.setProperty('--sevahub-rx',`${(-y*7).toFixed(2)}deg`);
-        card.style.setProperty('--sevahub-ry',`${(x*9).toFixed(2)}deg`);
-      });
+        if(REDUCED()||COARSE())return;
+        clientX=event.clientX;
+        clientY=event.clientY;
+        if(tiltRaf)return;
+        tiltRaf=requestAnimationFrame(()=>{
+          tiltRaf=0;
+          if(!card.isConnected)return;
+          const rect=card.getBoundingClientRect();
+          if(!rect.width||!rect.height||rect.bottom<0||rect.top>innerHeight)return;
+          const x=(clientX-rect.left)/rect.width-.5;
+          const y=(clientY-rect.top)/rect.height-.5;
+          card.style.setProperty('--sevahub-rx',`${(-y*7).toFixed(2)}deg`);
+          card.style.setProperty('--sevahub-ry',`${(x*9).toFixed(2)}deg`);
+        });
+      },{passive:true});
       card.addEventListener('pointerleave',()=>{
+        if(tiltRaf){cancelAnimationFrame(tiltRaf);tiltRaf=0}
         card.style.setProperty('--sevahub-rx','0deg');
         card.style.setProperty('--sevahub-ry','0deg');
       });
@@ -101,15 +117,22 @@
   }
 
   function updateMacbooks(){
-    if(REDUCED())return;
+    if(REDUCED()||document.hidden)return;
     document.querySelectorAll('[data-sevahub-macbook3d]').forEach(section=>{
       const card=section.querySelector('[data-sevahub-macbook-card]');
       if(!card)return;
       const rect=section.getBoundingClientRect();
+      if(rect.bottom<-160||rect.top>innerHeight+160)return;
       const progress=Math.min(1,Math.max(0,(innerHeight*.82-rect.top)/Math.max(1,section.offsetHeight*.72)));
       card.style.transform=`perspective(1200px) rotateX(${(18-progress*18).toFixed(2)}deg) translateY(${(40-progress*40).toFixed(1)}px) scale(${(.88+progress*.12).toFixed(3)})`;
       section.style.setProperty('--mac-progress',progress.toFixed(3));
     });
+  }
+
+  function scheduleViewportUpdate(){
+    if(viewportRafPending||document.hidden)return;
+    viewportRafPending=true;
+    requestAnimationFrame(()=>{viewportRafPending=false;updateMacbooks()});
   }
 
   function enhanceBox(box,role){
@@ -124,11 +147,25 @@
     const live=box.querySelector(':scope > [data-sevahub-macbook3d]');
     if(live)live.dataset.viewKey=currentKey;
     enhanceCards(box);
-    updateMacbooks();
+    scheduleViewportUpdate();
+  }
+
+  function mutationNeedsEnhance(mutation){
+    const target=mutation.target?.nodeType===1?mutation.target:mutation.target?.parentElement;
+    if(target?.closest?.('.stats .stat b,[data-sevahub-macbook3d]'))return false;
+    const changed=[...mutation.addedNodes,...mutation.removedNodes];
+    if(changed.length&&changed.every(node=>node.nodeType===3||(node.nodeType===1&&node.classList?.contains('sev-ripple'))))return false;
+    return true;
   }
 
   function install(box,role){
+    const previous=installedBoxes[role];
+    if(previous&&previous!==box){
+      try{previous.__sevahubMacbookObserver?.disconnect()}catch(e){}
+      installedBoxes[role]=null;
+    }
     if(!box)return;
+    installedBoxes[role]=box;
     if(box.dataset.sevahubMacbookInstalled==='1'){
       enhanceBox(box,role);
       return;
@@ -140,7 +177,9 @@
       scheduled=true;
       requestAnimationFrame(()=>{scheduled=false;enhanceBox(box,role)});
     };
-    const observer=new MutationObserver(schedule);
+    const observer=new MutationObserver(mutations=>{
+      if(mutations.some(mutationNeedsEnhance))schedule();
+    });
     observer.observe(box,{childList:true,subtree:true});
     box.__sevahubMacbookObserver=observer;
     enhanceBox(box,role);
@@ -154,13 +193,26 @@
   function scheduleScan(){
     if(rafPending)return;
     rafPending=true;
-    requestAnimationFrame(()=>{rafPending=false;scan();updateMacbooks()});
+    requestAnimationFrame(()=>{rafPending=false;scan();scheduleViewportUpdate()});
   }
 
-  window.addEventListener('scroll',()=>requestAnimationFrame(updateMacbooks),{passive:true});
-  window.addEventListener('resize',()=>requestAnimationFrame(updateMacbooks),{passive:true});
+  function mutationAffectsDashboard(mutation,root){
+    if(mutation.target===root)return true;
+    const nodes=[...mutation.addedNodes,...mutation.removedNodes];
+    return nodes.some(node=>node.nodeType===1&&(
+      node.matches?.('main.dashboard,#userContent,#workerContent')||
+      node.querySelector?.('main.dashboard,#userContent,#workerContent')
+    ));
+  }
 
-  bodyObserver=new MutationObserver(scheduleScan);
-  bodyObserver.observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('scroll',scheduleViewportUpdate,{passive:true});
+  window.addEventListener('resize',scheduleViewportUpdate,{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)scheduleViewportUpdate()});
+
+  const root=document.getElementById('app')||document.body;
+  bodyObserver=new MutationObserver(mutations=>{
+    if(mutations.some(m=>mutationAffectsDashboard(m,root)))scheduleScan();
+  });
+  bodyObserver.observe(root,{childList:true,subtree:true});
   scan();
 })();
