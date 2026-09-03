@@ -178,7 +178,7 @@
         return Boolean(target?.closest?.('[data-sevahub-macbook3d]'));
       }))refresh();
     });
-    observer.observe(box,{subtree:true,childList:true,characterData:true,attributes:true});
+    observer.observe(box,{subtree:true,childList:true,characterData:true});
     observers[role]={box,observer};
     refresh();
   }
