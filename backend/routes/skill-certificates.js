@@ -21,15 +21,12 @@ function rawCertificate(req,res,next){
 async function workerRowByUser(userId){
   const [rows]=await pool.query(`
     SELECT w.id,w.user_id,
-      (SELECT ws.service_id FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) service_id
+      (SELECT ws.service_id FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.service_id ASC LIMIT 1) service_id
     FROM workers w WHERE w.user_id=? LIMIT 1`,[userId]);
   return rows[0]||null;
 }
 
 async function moderationForWorker(workerId){
-  // Certificate uploads should not fail just because an older deployed database
-  // is missing a newer moderation column. Read only the columns that actually
-  // exist and treat missing optional moderation fields as inactive.
   try{
     const [cols]=await pool.query(`
       SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
@@ -113,9 +110,15 @@ router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res)=>{
   }catch(e){
     console.error('[Skill Certificates] POST /me failed:',e);
     const code=String(e?.code||'').trim();
-    const message=code
-      ?`Certificate upload failed on the server (${code}). Please retry after the latest deployment.`
-      :'Certificate upload failed on the server. Please retry after the latest deployment.';
+    let message='Certificate upload failed on the server. Please retry after the latest deployment.';
+    if(code==='ER_BAD_FIELD_ERROR'){
+      const match=String(e?.sqlMessage||e?.message||'').match(/Unknown column ['`]([^'`]+)['`]/i);
+      message=match
+        ?`Certificate storage was missing database field ${match[1]}. The latest deployment repairs this automatically; please retry once deployment finishes.`
+        :'Certificate storage schema was outdated. The latest deployment repairs it automatically; please retry once deployment finishes.';
+    }else if(code){
+      message=`Certificate upload failed on the server (${code}). Please retry after the latest deployment.`;
+    }
     return res.status(500).json({success:false,message});
   }
 });
