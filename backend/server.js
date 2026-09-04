@@ -75,6 +75,7 @@ app.use('/api/reviews',require('./routes/reviews'));
 app.use('/api/payments',require('./routes/payments'));
 app.use('/api/location',require('./routes/location'));
 app.use('/api/emergency/active',require('./routes/emergency-active'));
+app.use('/api/emergency',require('./routes/emergency-dynamic'));
 app.use('/api/emergency',require('./routes/emergency'));
 app.use('/api/notifications',require('./routes/notifications'));
 app.use('/api/support',require('./routes/support'));
