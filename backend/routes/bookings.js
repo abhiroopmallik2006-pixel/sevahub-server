@@ -36,6 +36,49 @@ router.get('/',auth,async(req,res,next)=>{try{
  const [rows]=await pool.query(sql,[req.user.id]); res.json({success:true,data:rows.map(r=>{delete r.completion_pin;delete r.tpin_attempts;if(worker){delete r.customer_tpin;delete r.tpin_expires_at}else if(r.tpin_expires_at && new Date(r.tpin_expires_at).getTime()<=Date.now()){r.customer_tpin=null;r.tpin_expires_at=null}return r})});
 }catch(e){next(e)}});
 
+router.post('/:id/cancel',auth,authorize('USER'),async(req,res,next)=>{
+ const conn=await pool.getConnection();
+ try{
+  await conn.beginTransaction();
+  const [rows]=await conn.query(`SELECT b.id,b.user_id,b.worker_id,b.status,w.user_id worker_user_id FROM bookings b JOIN workers w ON w.id=b.worker_id WHERE b.id=? AND b.user_id=? LIMIT 1 FOR UPDATE`,[req.params.id,req.user.id]);
+  if(!rows.length){await conn.rollback();return res.status(404).json({success:false,message:'Booking not found'});}
+  const b=rows[0];
+  if(b.status==='CANCELLED'){
+   await conn.rollback();
+   return res.json({success:true,message:'Booking is already cancelled',data:{bookingId:b.id,status:'CANCELLED'}});
+  }
+  if(['IN_PROGRESS','COMPLETED'].includes(b.status)){
+   await conn.rollback();
+   return res.status(400).json({success:false,message:b.status==='IN_PROGRESS'?'A service already in progress cannot be cancelled from the app. Please contact support.':'Completed bookings cannot be cancelled.'});
+  }
+
+  // Do not silently cancel an already-paid online booking because that would need
+  // a refund workflow. The payments table is optional on older databases, so only
+  // check it when it actually exists.
+  const [tables]=await conn.query("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='payments' LIMIT 1");
+  if(tables.length){
+   const [paid]=await conn.query("SELECT id FROM payments WHERE booking_id=? AND status='PAID' LIMIT 1",[b.id]);
+   if(paid.length){
+    await conn.rollback();
+    return res.status(409).json({success:false,message:'This booking is already paid. Please contact support for cancellation/refund assistance.'});
+   }
+  }
+
+  await conn.query("UPDATE bargain_offers SET status='REJECTED',responded_at=NOW() WHERE booking_id=? AND status='PENDING'",[b.id]);
+  await conn.query("UPDATE bookings SET status='CANCELLED',completion_pin=NULL,customer_tpin=NULL,tpin_attempts=0,tpin_expires_at=NULL WHERE id=?",[b.id]);
+  await conn.commit();
+
+  await notify(req.app,b.worker_user_id,'Booking cancelled by customer',`Customer cancelled Booking #${b.id}.`,'BOOKING').catch(()=>{});
+  const io=req.app.get('io');
+  io?.to(`user-${b.user_id}`).emit('booking-cancelled',{bookingId:b.id,reason:'CUSTOMER_CANCELLED'});
+  io?.to(`user-${b.worker_user_id}`).emit('booking-cancelled',{bookingId:b.id,reason:'CUSTOMER_CANCELLED'});
+  return res.json({success:true,message:'Booking cancelled successfully',data:{bookingId:b.id,status:'CANCELLED'}});
+ }catch(e){
+  await conn.rollback().catch(()=>{});
+  next(e);
+ }finally{conn.release()}
+});
+
 router.get('/history',auth,async(req,res,next)=>{try{
  const dateOk=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''));
  const from=dateOk(req.query.from)?String(req.query.from):'2000-01-01';
