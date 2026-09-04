@@ -3,6 +3,7 @@
   let injectTimer=null;
   let loading=false;
   let lastRenderAt=0;
+  let lastInstantPatchAt=0;
 
   function currentRole(){try{return typeof state!=='undefined'?state?.role:null}catch(e){return null}}
   function loggedWorker(){try{return currentRole()==='WORKER'&&Boolean(state?.user)}catch(e){return false}}
@@ -115,7 +116,7 @@
     card.innerHTML=`<div class="split"><div><div class="emergency-brand">AI + GPS WORKER READINESS</div><h2>⚡ Instant Job Readiness</h2><p class="muted">${detail}</p></div><span class="pill">${badge}</span></div><div class="tabs top-space">${action}</div>`;
   }
 
-  async function inject(){
+  async function injectOverview(){
     if(!loggedWorker())return;
     const box=document.getElementById('workerContent');
     if(!isWorkerOverview(box)){box?.querySelector('.instant-readiness-home')?.remove();return}
@@ -124,9 +125,49 @@
     try{renderCard(await getReadiness())}catch(e){}
   }
 
+  async function patchInstantJobs(){
+    if(!loggedWorker())return;
+    const marker=document.querySelector('#workerContent .instant-jobs-marker');
+    if(!marker||marker.querySelector('[data-instant-ready-inline]'))return;
+    if(Date.now()-lastInstantPatchAt<700)return;
+    lastInstantPatchAt=Date.now();
+    try{
+      const status=await getReadiness();
+      if(status.eligibleProfile&&status.gpsReady&&status.instantAvailable)return;
+      const panel=marker.querySelector('.instant-worker-panel');
+      if(!panel)return;
+      const wrap=document.createElement('div');
+      wrap.className='tabs top-space';wrap.dataset.instantReadyInline='1';
+      if(!status.eligibleProfile){
+        wrap.innerHTML='<span class="pill">Admin verification required</span>';
+      }else{
+        wrap.innerHTML='<button class="btn" type="button" data-instant-ready-action onclick="becomeInstantReady()">⚡ Become Ready in one tap</button>';
+      }
+      panel.appendChild(wrap);
+    }catch(e){}
+  }
+
+  function patchUserNoWorker(){
+    if(currentRole()!=='USER')return;
+    const card=document.querySelector('#emergencyModal .emergency-card');
+    if(!card||card.querySelector('[data-no-worker-guidance]'))return;
+    const text=(card.textContent||'').toLowerCase();
+    if(!text.includes('no opted-in, verified')&&!text.includes('no eligible worker'))return;
+    const note=document.createElement('div');
+    note.className='emergency-alert';note.dataset.noWorkerGuidance='1';
+    note.innerHTML='<b>Your GPS is working.</b> No worker is currently READY for this service. On the Worker account, open <b>Overview</b> or <b>Instant Jobs</b> and tap <b>⚡ Become Ready</b>. The worker must also be verified, offer the same service, have fresh GPS, be free from another active job, and be inside the service radius.';
+    const tabs=card.querySelector('.tabs');
+    if(tabs)card.insertBefore(note,tabs);else card.appendChild(note);
+  }
+
   function scheduleInject(force=false){
     clearTimeout(injectTimer);
-    injectTimer=setTimeout(()=>{if(force)lastRenderAt=0;inject()},force?40:140);
+    injectTimer=setTimeout(()=>{
+      if(force){lastRenderAt=0;lastInstantPatchAt=0}
+      injectOverview();
+      patchInstantJobs();
+      patchUserNoWorker();
+    },force?40:140);
   }
 
   const app=document.getElementById('app')||document.body;
