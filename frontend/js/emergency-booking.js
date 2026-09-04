@@ -4,6 +4,7 @@
   let activeRequestId=null;
   let pollTimer=null;
   let socket=null;
+  let socketUserId=null;
   let workerView=false;
   let injectTimer=null;
 
@@ -44,13 +45,20 @@
   function openEmergencyBooking(){
     if(role()!=='USER')return typeof toast==='function'&&toast('Instant Booking is for customer accounts.');
     if(!liveMode())return typeof toast==='function'&&toast('AI Instant Booking needs Server mode.');
-    activeRequestId=null;clearPoll();
+    clearPoll();
+    if(activeRequestId){
+      cardShell('<div class="emergency-search"><div class="emergency-pulse">⚡</div><h2>Resuming your active search…</h2></div>','Finding a Worker');
+      refreshEmergencyStatus();
+      pollTimer=setInterval(refreshEmergencyStatus,3000);
+      return;
+    }
     const old=draft||{};
+    const pay=old.paymentMethod||'Cash';
     cardShell(`<div class="emergency-alert"><b>Not for medical, police or fire emergencies.</b> Use this for urgent SevaHub household services such as plumbing, electrical, AC, appliance, cleaning or repair work.</div>
       <form class="emergency-form" onsubmit="analyseEmergency(event)">
         <div class="field"><label>What happened?</label><textarea id="emergencyProblem" maxlength="1200" required placeholder="Example: Kitchen sink pipe is leaking badly and I need a plumber now.">${safe(old.problem||'')}</textarea></div>
         <div class="field"><label>Address / landmark for the worker</label><input id="emergencyAddress" maxlength="1000" required placeholder="House / block / landmark" value="${safe(old.address||'')}"></div>
-        <div class="field"><label>Payment method</label><select id="emergencyPayment"><option>Cash</option><option>UPI</option><option>Card</option></select></div>
+        <div class="field"><label>Payment method</label><select id="emergencyPayment"><option ${pay==='Cash'?'selected':''}>Cash</option><option ${pay==='UPI'?'selected':''}>UPI</option><option ${pay==='Card'?'selected':''}>Card</option></select></div>
         <button class="btn" type="submit">🤖 Analyse problem with AI</button>
       </form>`);
   }
@@ -71,7 +79,7 @@
       draft={problem,address,paymentMethod,analysis:a};
       cardShell(`<div class="emergency-ai-result"><div class="emergency-brand">AI SERVICE DETECTION</div><div class="big">🤖 ${safe(a.serviceName)}</div><p>${safe(a.note||'AI selected the most suitable SevaHub service.')}</p><small class="muted">Detection source: ${safe(a.classificationSource)}</small></div>
         <div class="field"><label>Confirm service</label><select id="emergencyServiceConfirm">${serviceOptions(a.serviceId)}</select></div>
-        <div class="emergency-alert">Next, SevaHub gets a <b>fresh high-accuracy GPS fix</b>, filters only verified/available workers with fresh GPS, then contacts the nearest eligible workers in waves. The first valid worker to accept gets the booking.</div>
+        <div class="emergency-alert">Next, SevaHub gets a <b>fresh high-accuracy GPS fix</b>, filters only opted-in verified workers with fresh GPS, then contacts the nearest eligible workers in waves. The first valid worker to accept gets the booking.</div>
         <div class="tabs"><button class="btn" type="button" onclick="startEmergencySearch()">📍 Confirm & find nearest workers</button><button class="btn secondary" type="button" onclick="openEmergencyBooking()">Edit details</button></div>`,'Confirm AI Match');
     }catch(err){toast(err.message)}finally{if(btn){btn.disabled=false;btn.textContent='🤖 Analyse problem with AI'}}
   }
@@ -95,7 +103,7 @@
   async function startEmergencySearch(){
     if(!draft?.analysis)return openEmergencyBooking();
     const selected=Number(document.getElementById('emergencyServiceConfirm')?.value||draft.analysis.serviceId);
-    const card=cardShell(`<div class="emergency-search"><div class="emergency-pulse">📍</div><h2>Locking precise GPS…</h2><p class="muted">Fresh device location is required before AI can search nearby workers.</p></div>`,'Starting Instant Search');
+    const card=cardShell('<div class="emergency-search"><div class="emergency-pulse">📍</div><h2>Locking precise GPS…</h2><p class="muted">Fresh device location is required before AI can search nearby workers.</p></div>','Starting Instant Search');
     try{
       const gps=await syncFreshGps();
       card.innerHTML=`<div class="emergency-head"><div><div class="emergency-brand">SEVAHUB AI + GPS</div><h2>⚡ Starting Instant Search</h2></div><button class="btn secondary small" type="button" onclick="closeEmergencyBooking()">✕</button></div><div class="emergency-gps"><b>✓ Fresh GPS locked</b><span>accuracy ~${Math.round(gps.accuracy)} m</span></div><div class="emergency-search"><div class="emergency-pulse">🤖</div><h2>AI is finding nearby eligible workers…</h2></div>`;
@@ -112,7 +120,7 @@
   function renderSearchState(data){
     const expires=data.expiresAt?new Date(data.expiresAt).getTime():Date.now()+90000;
     const left=Math.max(0,Math.ceil((expires-Date.now())/1000));
-    cardShell(`<div class="emergency-search"><div class="emergency-pulse">⚡</div><div class="emergency-brand">AI + GEOLOCATION MATCHING</div><h2>Searching for ${safe(data.serviceName||draft?.analysis?.serviceName||'a professional')}</h2><p class="muted">Fresh GPS distance is authoritative. AI identified the service; SevaHub is contacting the nearest verified, available workers first.</p>
+    cardShell(`<div class="emergency-search"><div class="emergency-pulse">⚡</div><div class="emergency-brand">AI + GEOLOCATION MATCHING</div><h2>Searching for ${safe(data.serviceName||draft?.analysis?.serviceName||'a professional')}</h2><p class="muted">Fresh GPS distance is authoritative. AI identified the service; SevaHub is contacting the nearest opted-in, verified and available workers first.</p>
       <div class="emergency-stats"><div class="emergency-stat"><b>${Number(data.reachedWorkers??data.notifiedNow??0)}</b><span>workers reached</span></div><div class="emergency-stat"><b>${Number(data.eligibleWorkers||0)}</b><span>eligible nearby</span></div><div class="emergency-stat"><b>${left}s</b><span>search window</span></div></div>
       <div class="emergency-gps"><b>📍 GPS ready</b><span>~${Math.round(Number(data.gpsAccuracy||0))} m accuracy</span></div>
       <div class="tabs top-space"><button class="btn danger" type="button" onclick="cancelEmergencySearch()">Cancel search</button></div></div>`,'Finding a Worker');
@@ -126,9 +134,13 @@
       if(d.status==='SEARCHING'){renderSearchState(d);return}
       clearPoll();
       if(d.status==='MATCHED'){
-        cardShell(`<div class="emergency-match"><div class="match-icon">✅</div><div class="emergency-brand">AI + GPS MATCH COMPLETE</div><h2>${safe(d.workerName||'Worker')} matched</h2><p><b>${safe(d.serviceName)}</b> · ${d.workerRating?`⭐ ${Number(d.workerRating).toFixed(1)} · `:''}${Number(d.workerExperience||0)} yr experience</p><p class="muted">Booking #${Number(d.matchedBookingId)} is confirmed. Chat, live GPS, completion OTP and payment continue through the normal secure booking flow.</p><div class="tabs"><button class="btn" type="button" onclick="openMatchedEmergencyBooking()">Open My Bookings</button><button class="btn secondary" type="button" onclick="closeEmergencyBooking()">Close</button></div></div>`,'Worker Found');
+        activeRequestId=null;
+        const distance=d.matchedDistanceKm==null?'':` · 📍 ${Number(d.matchedDistanceKm)<1?`${Math.round(Number(d.matchedDistanceKm)*1000)} m`:`${Number(d.matchedDistanceKm).toFixed(1)} km`} from request point`;
+        const price=d.matchedPrice==null?'':` · ${rupee(d.matchedPrice)}`;
+        cardShell(`<div class="emergency-match"><div class="match-icon">✅</div><div class="emergency-brand">AI + GPS MATCH COMPLETE</div><h2>${safe(d.workerName||'Worker')} matched</h2><p><b>${safe(d.serviceName)}</b>${price}${distance}</p><p>${d.workerRating?`⭐ ${Number(d.workerRating).toFixed(1)} · `:''}${Number(d.workerExperience||0)} yr experience</p><p class="muted">Booking #${Number(d.matchedBookingId)} is confirmed. Chat, live GPS, completion OTP and payment continue through the normal secure booking flow.</p><div class="tabs"><button class="btn" type="button" onclick="openMatchedEmergencyBooking()">Open My Bookings</button><button class="btn secondary" type="button" onclick="closeEmergencyBooking()">Close</button></div></div>`,'Worker Found');
       }else{
-        cardShell(`<div class="emergency-search"><div style="font-size:38px">📍</div><h2>No eligible worker accepted in time</h2><p class="muted">The search only used verified workers with fresh GPS inside their service radius. You can retry for a new 90-second search.</p><div class="tabs"><button class="btn" type="button" onclick="startEmergencySearch()">Retry search</button><button class="btn secondary" type="button" onclick="openEmergencyBooking()">Change problem/service</button></div></div>`,'Search Ended');
+        activeRequestId=null;
+        cardShell('<div class="emergency-search"><div style="font-size:38px">📍</div><h2>No eligible worker accepted in time</h2><p class="muted">The search only used opted-in verified workers with fresh GPS inside their service radius. You can retry for a new 90-second search.</p><div class="tabs"><button class="btn" type="button" onclick="startEmergencySearch()">Retry search</button><button class="btn secondary" type="button" onclick="openEmergencyBooking()">Change problem/service</button></div></div>','Search Ended');
       }
     }catch(err){console.warn('Instant request status unavailable',err)}
   }
@@ -139,7 +151,7 @@
   }
   window.cancelEmergencySearch=cancelEmergencySearch;
 
-  function openMatchedEmergencyBooking(){removeModal();try{if(typeof userBookings==='function')userBookings()}catch(e){}}
+  function openMatchedEmergencyBooking(){activeRequestId=null;removeModal();try{if(typeof userBookings==='function')userBookings()}catch(e){}}
   window.openMatchedEmergencyBooking=openMatchedEmergencyBooking;
 
   async function openInstantJobs(){
@@ -157,7 +169,8 @@
     try{
       const [availability,offers]=await Promise.all([api('/emergency/worker/availability'),api('/emergency/worker/offers')]);
       const a=availability.data||{},rows=offers.data||[];
-      box.innerHTML=`<div class="card panel instant-jobs-marker"><div class="instant-worker-panel"><div class="instant-top"><div><div class="emergency-brand">AI + GPS INSTANT JOBS</div><h2>⚡ Instant Jobs</h2><p class="muted">Only fresh GPS, verified service matches and workers without an active job are eligible.</p></div><button class="btn ${a.instantAvailable?'danger':'secondary'} small" type="button" onclick="toggleInstantAvailability(${a.instantAvailable?'false':'true'})">${a.instantAvailable?'Pause Instant Jobs':'Go Available'}</button></div><div class="emergency-gps"><b>${a.gpsReady?'✓ GPS ready':'⚠ GPS not ready'}</b><span>${a.gpsReady?`accuracy ~${Math.round(Number(a.gpsAccuracy||0))} m`:safe(a.gpsMessage||'Enable live location')}</span>${!a.gpsReady?'<button class="btn secondary small" type="button" onclick="openLocationSettings()">Open Location</button>':''}</div></div>
+      const unavailableReason=!a.eligibleProfile?'Your worker profile must be verified and unrestricted for Instant Jobs.':(!a.gpsReady?safe(a.gpsMessage||'Enable fresh GPS first.'):'');
+      box.innerHTML=`<div class="card panel instant-jobs-marker"><div class="instant-worker-panel"><div class="instant-top"><div><div class="emergency-brand">AI + GPS INSTANT JOBS</div><h2>⚡ Instant Jobs</h2><p class="muted">Opt in when you want urgent nearby work. Fresh GPS and an active verified profile are required.</p></div><button class="btn ${a.instantAvailable?'danger':'secondary'} small" type="button" onclick="toggleInstantAvailability(${a.instantAvailable?'false':'true'})" ${!a.instantAvailable&&(!a.eligibleProfile||!a.gpsReady)?'disabled':''}>${a.instantAvailable?'Pause Instant Jobs':'Go Available'}</button></div><div class="emergency-gps"><b>${a.gpsReady?'✓ GPS ready':'⚠ GPS not ready'}</b><span>${a.gpsReady?`accuracy ~${Math.round(Number(a.gpsAccuracy||0))} m`:safe(a.gpsMessage||'Enable live location')}</span>${!a.gpsReady?'<button class="btn secondary small" type="button" onclick="openLocationSettings()">Open Location</button>':''}</div>${unavailableReason?`<div class="emergency-alert">${unavailableReason}</div>`:''}</div>
         <div class="split"><h2>Nearby urgent requests</h2><button class="btn secondary small" type="button" onclick="refreshInstantJobs()">↻ Refresh</button></div>
         ${rows.length?rows.map(instantOfferHtml).join(''):'<div class="empty">No active Instant Job offer right now. Keep GPS and Instant Jobs on to receive nearby requests.</div>'}</div>`;
       if(!pollTimer)pollTimer=setInterval(()=>{if(document.querySelector('.instant-jobs-marker'))refreshInstantJobs();else{workerView=false;clearPoll()}},5000);
@@ -170,7 +183,7 @@
   }
 
   async function toggleInstantAvailability(value){
-    try{await api('/emergency/worker/availability',{method:'PUT',body:JSON.stringify({available:Boolean(value)})});toast(value?'⚡ Instant Jobs enabled':'Instant Jobs paused');await refreshInstantJobs()}catch(err){toast(err.message)}
+    try{await api('/emergency/worker/availability',{method:'PUT',body:JSON.stringify({available:Boolean(value)})});toast(value?'⚡ Instant Jobs enabled':'Instant Jobs paused');await refreshInstantJobs()}catch(err){toast(err.message);await refreshInstantJobs()}
   }
   window.toggleInstantAvailability=toggleInstantAvailability;
 
@@ -211,10 +224,15 @@
   }
 
   function bindSocket(){
-    if(socket||!window.io||!user()||!liveMode())return;
+    const u=user();
+    if(!window.io||!u||!liveMode())return;
+    const uid=Number(u.id);
+    if(socket&&socketUserId===uid)return;
+    if(socket){try{socket.disconnect()}catch(e){}socket=null;socketUserId=null}
     try{
+      socketUserId=uid;
       socket=window.io({transports:['websocket','polling']});
-      socket.on('connect',()=>socket.emit('join-user-room',user().id));
+      socket.on('connect',()=>socket.emit('join-user-room',uid));
       socket.on('emergency-offer',p=>{if(role()==='WORKER'){toast(`⚡ ${p.serviceName||'Instant job'} · ${Number(p.distanceKm||0).toFixed(1)} km`);if(workerView)refreshInstantJobs()}});
       socket.on('emergency-matched',p=>{if(role()==='USER'&&Number(p.requestId)===Number(activeRequestId))refreshEmergencyStatus()});
       socket.on('emergency-accepted',()=>{if(role()==='WORKER'&&workerView)refreshInstantJobs()});
