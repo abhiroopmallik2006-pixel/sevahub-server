@@ -1,0 +1,47 @@
+/* SevaHub motion layer adapted from the supplied Project_SevaHub ZIP.
+   Current architecture stays lightweight: no mirrored dashboard, no continuous scroll transforms. */
+
+/* Desktop-only card depth. Touch devices stay completely flat. */
+main.dashboard .sev-motion-card{
+  position:relative;
+  min-width:0;
+  transition:transform .18s ease,box-shadow .22s ease,border-color .22s ease;
+}
+
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) and (min-width:761px){
+  main.dashboard .sev-motion-card.sev-motion-active,
+  main.dashboard .sev-motion-card:focus-within{
+    z-index:4;
+    transform:perspective(1000px) rotateX(var(--sev-card-x,0deg)) rotateY(var(--sev-card-y,0deg)) translateY(-3px)!important;
+    box-shadow:0 20px 38px rgba(35,25,18,.20)!important;
+  }
+  main.dashboard .sev-motion-card.sev-motion-active .service-icon,
+  main.dashboard .sev-motion-card:focus-within .service-icon{
+    transform:translateY(-2px) scale(1.035);
+  }
+}
+
+/* One-time MacBook entrance is driven by dashboard-motion.js; keep its parts compositable. */
+.sevahub-macbook3d-screen,
+.sevahub-macbook3d-base,
+.sevahub-macbook3d-copy{
+  backface-visibility:hidden;
+}
+
+/* Keep hover motion from fighting the mobile viewport-fit layer. */
+@media(max-width:760px),(hover:none),(pointer:coarse){
+  main.dashboard .sev-motion-card,
+  main.dashboard .sev-motion-card.sev-motion-active,
+  main.dashboard .sev-motion-card:focus-within{
+    transform:none!important;
+    box-shadow:inherit;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  main.dashboard .sev-motion-card,
+  main.dashboard .sev-motion-card *{
+    transition:none!important;
+    animation:none!important;
+  }
+}
