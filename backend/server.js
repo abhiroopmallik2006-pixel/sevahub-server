@@ -90,6 +90,7 @@ app.get('/api/health',(req,res)=>res.json({success:true,status:'ok'}));
    a dedicated ADMIN_EMAIL + ADMIN_PASSWORD protected admin token. */
 app.get('/cooperative-admin',(req,res)=>{
   res.set('X-Robots-Tag','noindex, nofollow, noarchive');
+  res.set('Cache-Control','no-store, no-cache, must-revalidate, private');
   res.sendFile(path.join(__dirname,'../frontend/cooperative-admin.html'));
 });
 
