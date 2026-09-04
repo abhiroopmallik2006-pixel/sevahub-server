@@ -1,11 +1,48 @@
 /* SevaHub motion layer adapted from the supplied Project_SevaHub ZIP.
-   Current architecture stays lightweight: no mirrored dashboard, no continuous scroll transforms. */
+   Current architecture stays lightweight: no mirrored dashboard and no live-content transforms. */
 
-/* Desktop-only card depth. Touch devices stay completely flat. */
 main.dashboard .sev-motion-card{
   position:relative;
   min-width:0;
   transition:transform .18s ease,box-shadow .22s ease,border-color .22s ease;
+}
+
+/* The performance layer intentionally freezes the old heavy shells. Re-enable motion only
+   on the lightweight visual preview elements, and only on desktop. */
+@media (min-width:761px) and (prefers-reduced-motion:no-preference){
+  main.dashboard .dashboard-scroll-stage{
+    perspective:1200px!important;
+  }
+  main.dashboard .dashboard-scroll-hero .dashboard-scroll-card{
+    transform-origin:center center!important;
+    transform:perspective(1200px) rotateX(var(--sev-hero-angle,0deg)) scale(var(--sev-hero-scale,1))!important;
+    transition:none!important;
+    will-change:transform!important;
+  }
+  main.dashboard .dashboard-scroll-title{
+    transform:translate3d(0,var(--sev-hero-title-y,0px),0)!important;
+    will-change:transform!important;
+  }
+
+  main.dashboard .sevahub-macbook3d-section{
+    perspective:1200px!important;
+  }
+  main.dashboard .sevahub-macbook3d-screen{
+    transform-origin:center bottom!important;
+    transform:translate3d(0,var(--sev-mac-rise,0px),0) rotateX(var(--sev-mac-angle,0deg)) scale(var(--sev-mac-scale,1))!important;
+    transition:none!important;
+    will-change:transform!important;
+  }
+  main.dashboard .sevahub-macbook3d-copy{
+    transform:translate3d(0,var(--sev-mac-copy-y,0px),0)!important;
+    opacity:var(--sev-mac-copy-opacity,1);
+    will-change:transform,opacity;
+  }
+  main.dashboard .sevahub-macbook3d-base{
+    transform:scaleX(var(--sev-mac-base-scale,1))!important;
+    transform-origin:center top!important;
+    transition:none!important;
+  }
 }
 
 @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) and (min-width:761px){
@@ -21,27 +58,40 @@ main.dashboard .sev-motion-card{
   }
 }
 
-/* One-time MacBook entrance is driven by dashboard-motion.js; keep its parts compositable. */
 .sevahub-macbook3d-screen,
 .sevahub-macbook3d-base,
-.sevahub-macbook3d-copy{
+.sevahub-macbook3d-copy,
+.dashboard-scroll-card,
+.dashboard-scroll-title{
   backface-visibility:hidden;
 }
 
-/* Keep hover motion from fighting the mobile viewport-fit layer. */
+/* Touch/mobile remains flat so the full-app mobile fit stays stable and cheap. */
 @media(max-width:760px),(hover:none),(pointer:coarse){
   main.dashboard .sev-motion-card,
   main.dashboard .sev-motion-card.sev-motion-active,
-  main.dashboard .sev-motion-card:focus-within{
+  main.dashboard .sev-motion-card:focus-within,
+  main.dashboard .dashboard-scroll-hero .dashboard-scroll-card,
+  main.dashboard .dashboard-scroll-title,
+  main.dashboard .sevahub-macbook3d-screen,
+  main.dashboard .sevahub-macbook3d-copy,
+  main.dashboard .sevahub-macbook3d-base{
     transform:none!important;
-    box-shadow:inherit;
   }
+  main.dashboard .sevahub-macbook3d-copy{opacity:1!important}
 }
 
 @media(prefers-reduced-motion:reduce){
   main.dashboard .sev-motion-card,
-  main.dashboard .sev-motion-card *{
+  main.dashboard .sev-motion-card *,
+  main.dashboard .dashboard-scroll-card,
+  main.dashboard .dashboard-scroll-title,
+  main.dashboard .sevahub-macbook3d-screen,
+  main.dashboard .sevahub-macbook3d-copy,
+  main.dashboard .sevahub-macbook3d-base{
     transition:none!important;
     animation:none!important;
+    transform:none!important;
   }
+  main.dashboard .sevahub-macbook3d-copy{opacity:1!important}
 }
