@@ -1,97 +1,56 @@
-/* SevaHub motion layer adapted from the supplied Project_SevaHub ZIP.
-   Current architecture stays lightweight: no mirrored dashboard and no live-content transforms. */
+/* Exact motion behavior from the supplied Project_SevaHub ZIP, adapted only so the current lightweight MacBook preview keeps the real dashboard outside the laptop. */
+.sevahub-macbook3d{perspective:1200px;width:min(89%,650px)}
+.sevahub-macbook3d-lid{
+  position:relative;
+  z-index:2;
+  transform-origin:center bottom;
+  transform:translateY(var(--sev-lid-rise,0px)) rotateX(var(--sev-lid-angle,0deg)) scale(var(--sev-lid-scale,1));
+  backface-visibility:hidden;
+}
+.sevahub-macbook3d-lid:focus-within{transform:none}
 
+/* ZIP card tilt: the card itself rotates and its visible children gain real Z depth. */
 main.dashboard .sev-motion-card{
   position:relative;
-  min-width:0;
-  transition:transform .18s ease,box-shadow .22s ease,border-color .22s ease;
+  transform:none;
+  transition:transform .2s ease,box-shadow .2s ease;
 }
-
-/* The performance layer intentionally freezes the old heavy shells. Re-enable motion only
-   on the lightweight visual preview elements, and only on desktop. */
-@media (min-width:761px) and (prefers-reduced-motion:no-preference){
-  main.dashboard .dashboard-scroll-stage{
-    perspective:1200px!important;
-  }
-  main.dashboard .dashboard-scroll-hero .dashboard-scroll-card{
-    transform-origin:center center!important;
-    transform:perspective(1200px) rotateX(var(--sev-hero-angle,0deg)) scale(var(--sev-hero-scale,1))!important;
-    transition:none!important;
-    will-change:transform!important;
-  }
-  main.dashboard .dashboard-scroll-title{
-    transform:translate3d(0,var(--sev-hero-title-y,0px),0)!important;
-    will-change:transform!important;
-  }
-
-  main.dashboard .sevahub-macbook3d-section{
-    perspective:1200px!important;
-  }
-  main.dashboard .sevahub-macbook3d-screen{
-    transform-origin:center bottom!important;
-    transform:translate3d(0,var(--sev-mac-rise,0px),0) rotateX(var(--sev-mac-angle,0deg)) scale(var(--sev-mac-scale,1))!important;
-    transition:none!important;
-    will-change:transform!important;
-  }
-  main.dashboard .sevahub-macbook3d-copy{
-    transform:translate3d(0,var(--sev-mac-copy-y,0px),0)!important;
-    opacity:var(--sev-mac-copy-opacity,1);
-    will-change:transform,opacity;
-  }
-  main.dashboard .sevahub-macbook3d-base{
-    transform:scaleX(var(--sev-mac-base-scale,1))!important;
-    transform-origin:center top!important;
-    transition:none!important;
-  }
-}
-
-@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference) and (min-width:761px){
+@media (hover:hover) and (pointer:fine) and (prefers-reduced-motion:no-preference){
   main.dashboard .sev-motion-card.sev-motion-active,
   main.dashboard .sev-motion-card:focus-within{
     z-index:4;
+    overflow:visible!important;
+    contain:none;
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+    transform-style:preserve-3d;
     transform:perspective(1000px) rotateX(var(--sev-card-x,0deg)) rotateY(var(--sev-card-y,0deg)) translateY(-3px)!important;
-    box-shadow:0 20px 38px rgba(35,25,18,.20)!important;
+    box-shadow:0 20px 38px rgba(35,25,18,.22);
   }
-  main.dashboard .sev-motion-card.sev-motion-active .service-icon,
-  main.dashboard .sev-motion-card:focus-within .service-icon{
-    transform:translateY(-2px) scale(1.035);
+  main.dashboard .sev-motion-card>:is(h2,h3,p,.price,.service-icon,img,.tabs,.btn,.split,.layout-grid-content){
+    translate:0 0 0;
+    transition:translate .25s ease;
   }
+  main.dashboard .sev-motion-card:is(.sev-motion-active,:focus-within)>:is(h2,h3,.split){translate:0 0 35px}
+  main.dashboard .sev-motion-card:is(.sev-motion-active,:focus-within)>:is(p,.price,.layout-grid-content){translate:0 0 45px}
+  main.dashboard .sev-motion-card:is(.sev-motion-active,:focus-within)>:is(.service-icon,img){translate:0 0 65px}
+  main.dashboard .sev-motion-card:is(.sev-motion-active,:focus-within)>:is(.btn,.tabs){translate:0 0 20px}
+  main.dashboard .sev-motion-card .layout-grid-overlay{border-radius:inherit}
 }
 
-.sevahub-macbook3d-screen,
-.sevahub-macbook3d-base,
-.sevahub-macbook3d-copy,
-.dashboard-scroll-card,
-.dashboard-scroll-title{
-  backface-visibility:hidden;
+/* ContainerScroll-style dashboard preview from the ZIP. */
+.dashboard-scroll-stage{perspective:1000px;contain:layout style}
+.dashboard-scroll-hero .dashboard-scroll-card{
+  transform-origin:center center;
+  transform:rotateX(var(--sev-hero-angle,0deg)) scale(var(--sev-hero-scale,1));
+  transition:none;
 }
+.dashboard-scroll-title{transform:translateY(var(--sev-hero-title-y,0px))}
 
-/* Touch/mobile remains flat so the full-app mobile fit stays stable and cheap. */
-@media(max-width:760px),(hover:none),(pointer:coarse){
+@media (prefers-reduced-motion:reduce){
+  .sevahub-macbook3d-lid{transform:none!important}
   main.dashboard .sev-motion-card,
-  main.dashboard .sev-motion-card.sev-motion-active,
-  main.dashboard .sev-motion-card:focus-within,
-  main.dashboard .dashboard-scroll-hero .dashboard-scroll-card,
-  main.dashboard .dashboard-scroll-title,
-  main.dashboard .sevahub-macbook3d-screen,
-  main.dashboard .sevahub-macbook3d-copy,
-  main.dashboard .sevahub-macbook3d-base{
-    transform:none!important;
-  }
-  main.dashboard .sevahub-macbook3d-copy{opacity:1!important}
-}
-
-@media(prefers-reduced-motion:reduce){
-  main.dashboard .sev-motion-card,
-  main.dashboard .sev-motion-card *,
-  main.dashboard .dashboard-scroll-card,
-  main.dashboard .dashboard-scroll-title,
-  main.dashboard .sevahub-macbook3d-screen,
-  main.dashboard .sevahub-macbook3d-copy,
-  main.dashboard .sevahub-macbook3d-base{
-    transition:none!important;
-    animation:none!important;
-    transform:none!important;
-  }
-  main.dashboard .sevahub-macbook3d-copy{opacity:1!important}
+  main.dashboard .sev-motion-card>*{transform:none!important;translate:none!important;transition:none!important}
+  .dashboard-scroll-hero .dashboard-scroll-card,
+  .dashboard-scroll-title{transform:none!important}
 }
