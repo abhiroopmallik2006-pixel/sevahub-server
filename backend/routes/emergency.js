@@ -3,6 +3,7 @@ const pool=require('../config');
 const {auth,authorize}=require('../middleware/auth');
 const {notify}=require('../utils/notifications');
 const {reply}=require('../services/aiProvider');
+const {ensureWorkerModeration}=require('../utils/workerModeration');
 
 const router=express.Router();
 const GPS_FRESH_SECONDS=45;
@@ -11,6 +12,7 @@ const SEARCH_TTL_SECONDS=90;
 const INITIAL_WAVE=3;
 const SECOND_WAVE=6;
 const FINAL_WAVE=10;
+let schemaPromise=null;
 
 const SERVICE_RULES=[
   {name:'Pest Control',rx:/\b(pest|termite|cockroach|mosquito|bedbug|bed bug|ants?)\b/i},
@@ -32,53 +34,59 @@ async function columnExists(table,column){
 }
 
 async function ensureEmergencySchema(){
-  if(!(await columnExists('workers','instant_available'))){
-    await pool.query('ALTER TABLE workers ADD COLUMN instant_available TINYINT(1) NOT NULL DEFAULT 1');
+  if(!schemaPromise){
+    schemaPromise=(async()=>{
+      await ensureWorkerModeration(pool);
+      if(!(await columnExists('workers','instant_available'))){
+        await pool.query('ALTER TABLE workers ADD COLUMN instant_available TINYINT(1) NOT NULL DEFAULT 0');
+      }
+      if(!(await columnExists('user_locations','captured_at'))){
+        await pool.query('ALTER TABLE user_locations ADD COLUMN captured_at DATETIME(3) NULL AFTER accuracy_m');
+      }
+      await pool.query(`CREATE TABLE IF NOT EXISTS emergency_requests (
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        service_id INT NOT NULL,
+        problem VARCHAR(1200) NOT NULL,
+        address VARCHAR(1000) NOT NULL,
+        payment_method VARCHAR(20) NOT NULL DEFAULT 'Cash',
+        status VARCHAR(30) NOT NULL DEFAULT 'SEARCHING',
+        classification_source VARCHAR(30) NOT NULL DEFAULT 'RULES',
+        ai_note VARCHAR(500) NULL,
+        user_latitude DECIMAL(10,7) NOT NULL,
+        user_longitude DECIMAL(10,7) NOT NULL,
+        user_accuracy_m DECIMAL(10,2) NULL,
+        matched_worker_id INT NULL,
+        matched_booking_id INT NULL,
+        requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        matched_at TIMESTAMP NULL DEFAULT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        INDEX idx_emergency_user_status(user_id,status),
+        INDEX idx_emergency_status_expires(status,expires_at),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
+        FOREIGN KEY (matched_worker_id) REFERENCES workers(id) ON DELETE SET NULL,
+        FOREIGN KEY (matched_booking_id) REFERENCES bookings(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+      await pool.query(`CREATE TABLE IF NOT EXISTS emergency_offers (
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        request_id BIGINT NOT NULL,
+        worker_id INT NOT NULL,
+        rank_no INT NOT NULL,
+        distance_km DECIMAL(10,3) NOT NULL,
+        gps_accuracy_m DECIMAL(10,2) NULL,
+        status VARCHAR(24) NOT NULL DEFAULT 'QUEUED',
+        notified_at TIMESTAMP NULL DEFAULT NULL,
+        responded_at TIMESTAMP NULL DEFAULT NULL,
+        UNIQUE KEY uq_emergency_offer(request_id,worker_id),
+        INDEX idx_emergency_worker_status(worker_id,status),
+        INDEX idx_emergency_request_rank(request_id,rank_no),
+        FOREIGN KEY (request_id) REFERENCES emergency_requests(id) ON DELETE CASCADE,
+        FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    })();
   }
-  if(!(await columnExists('user_locations','captured_at'))){
-    await pool.query('ALTER TABLE user_locations ADD COLUMN captured_at DATETIME(3) NULL AFTER accuracy_m');
-  }
-  await pool.query(`CREATE TABLE IF NOT EXISTS emergency_requests (
-    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    service_id INT NOT NULL,
-    problem VARCHAR(1200) NOT NULL,
-    address VARCHAR(1000) NOT NULL,
-    payment_method VARCHAR(20) NOT NULL DEFAULT 'Cash',
-    status VARCHAR(30) NOT NULL DEFAULT 'SEARCHING',
-    classification_source VARCHAR(30) NOT NULL DEFAULT 'RULES',
-    ai_note VARCHAR(500) NULL,
-    user_latitude DECIMAL(10,7) NOT NULL,
-    user_longitude DECIMAL(10,7) NOT NULL,
-    user_accuracy_m DECIMAL(10,2) NULL,
-    matched_worker_id INT NULL,
-    matched_booking_id INT NULL,
-    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    matched_at TIMESTAMP NULL DEFAULT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    INDEX idx_emergency_user_status(user_id,status),
-    INDEX idx_emergency_status_expires(status,expires_at),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE,
-    FOREIGN KEY (matched_worker_id) REFERENCES workers(id) ON DELETE SET NULL,
-    FOREIGN KEY (matched_booking_id) REFERENCES bookings(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS emergency_offers (
-    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    request_id BIGINT NOT NULL,
-    worker_id INT NOT NULL,
-    rank_no INT NOT NULL,
-    distance_km DECIMAL(10,3) NOT NULL,
-    gps_accuracy_m DECIMAL(10,2) NULL,
-    status VARCHAR(24) NOT NULL DEFAULT 'QUEUED',
-    notified_at TIMESTAMP NULL DEFAULT NULL,
-    responded_at TIMESTAMP NULL DEFAULT NULL,
-    UNIQUE KEY uq_emergency_offer(request_id,worker_id),
-    INDEX idx_emergency_worker_status(worker_id,status),
-    INDEX idx_emergency_request_rank(request_id,rank_no),
-    FOREIGN KEY (request_id) REFERENCES emergency_requests(id) ON DELETE CASCADE,
-    FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+  return schemaPromise.catch(err=>{schemaPromise=null;throw err});
 }
 
 function distanceKm(aLat,aLng,bLat,bLng){
@@ -139,7 +147,7 @@ async function eligibleCandidates(serviceId,userLocation){
       AND COALESCE(w.verification_status,'PENDING')='VERIFIED'
       AND COALESCE(w.is_banned,0)=0
       AND w.profile_deleted_at IS NULL
-      AND COALESCE(w.instant_available,1)=1
+      AND COALESCE(w.instant_available,0)=1
       AND l.sharing_enabled=TRUE
       AND COALESCE(l.captured_at,l.updated_at)>=DATE_SUB(NOW(3),INTERVAL ${GPS_FRESH_SECONDS} SECOND)
       AND COALESCE(l.accuracy_m,9999)<=?
@@ -245,11 +253,12 @@ router.post('/requests',auth,authorize('USER'),async(req,res,next)=>{try{
   if(Number.isInteger(requestedServiceId)&&requestedServiceId>0){
     const [rows]=await pool.query('SELECT id,name,base_price FROM services WHERE id=? LIMIT 1',[requestedServiceId]);
     if(!rows.length)return res.status(400).json({success:false,message:'Selected service was not found'});
-    classified={service:rows[0],source:String(req.body.classificationSource||'AI').slice(0,30),note:'AI/user-confirmed emergency service.'};
+    const src=String(req.body.classificationSource||'').toUpperCase()==='AI'?'AI_CONFIRMED':'USER_CONFIRMED';
+    classified={service:rows[0],source:src,note:src==='AI_CONFIRMED'?`AI detected ${rows[0].name}; customer confirmed the service.`:`Customer confirmed ${rows[0].name}.`};
   }else classified=await classifyService(problem,req.user.id);
 
   const candidates=await eligibleCandidates(Number(classified.service.id),gps);
-  if(!candidates.length)return res.status(404).json({success:false,message:`No verified ${classified.service.name} worker currently has fresh GPS and availability within their service radius.`});
+  if(!candidates.length)return res.status(404).json({success:false,message:`No opted-in, verified ${classified.service.name} worker currently has fresh GPS and availability within their service radius.`});
 
   const conn=await pool.getConnection();
   let requestId;
@@ -276,20 +285,23 @@ router.get('/requests/:id',auth,authorize('USER'),async(req,res,next)=>{try{
   await ensureEmergencySchema();
   const requestId=Number(req.params.id);
   if(!Number.isInteger(requestId)||requestId<1)return res.status(400).json({success:false,message:'Invalid instant request'});
+  const [owned]=await pool.query('SELECT id FROM emergency_requests WHERE id=? AND user_id=? LIMIT 1',[requestId,req.user.id]);
+  if(!owned.length)return res.status(404).json({success:false,message:'Instant request not found'});
   await advanceWave(req.app,requestId);
   const [rows]=await pool.query(`SELECT er.id,er.status,er.service_id,er.problem,er.classification_source,er.ai_note,er.user_accuracy_m,
       er.matched_booking_id,er.matched_worker_id,er.requested_at,er.matched_at,er.expires_at,s.name service_name,
-      u.full_name worker_name,w.rating worker_rating,w.experience_years,
+      u.full_name worker_name,w.rating worker_rating,w.experience_years,b.original_price matched_price,
+      (SELECT distance_km FROM emergency_offers eo WHERE eo.request_id=er.id AND eo.status='ACCEPTED' LIMIT 1) matched_distance_km,
       (SELECT COUNT(*) FROM emergency_offers eo WHERE eo.request_id=er.id) eligible_workers,
       (SELECT COUNT(*) FROM emergency_offers eo WHERE eo.request_id=er.id AND eo.status IN ('OFFERED','ACCEPTED','DECLINED','CLOSED','EXPIRED')) reached_workers
     FROM emergency_requests er
     JOIN services s ON s.id=er.service_id
     LEFT JOIN workers w ON w.id=er.matched_worker_id
     LEFT JOIN users u ON u.id=w.user_id
+    LEFT JOIN bookings b ON b.id=er.matched_booking_id
     WHERE er.id=? AND er.user_id=? LIMIT 1`,[requestId,req.user.id]);
-  if(!rows.length)return res.status(404).json({success:false,message:'Instant request not found'});
   const r=rows[0];
-  res.json({success:true,data:{requestId:Number(r.id),status:r.status,serviceId:Number(r.service_id),serviceName:r.service_name,problem:r.problem,classificationSource:r.classification_source,aiNote:r.ai_note,gpsAccuracy:Number(r.user_accuracy_m||0),matchedBookingId:r.matched_booking_id?Number(r.matched_booking_id):null,matchedWorkerId:r.matched_worker_id?Number(r.matched_worker_id):null,workerName:r.worker_name||null,workerRating:Number(r.worker_rating||0),workerExperience:Number(r.experience_years||0),eligibleWorkers:Number(r.eligible_workers||0),reachedWorkers:Number(r.reached_workers||0),requestedAt:r.requested_at,matchedAt:r.matched_at,expiresAt:r.expires_at}});
+  res.json({success:true,data:{requestId:Number(r.id),status:r.status,serviceId:Number(r.service_id),serviceName:r.service_name,problem:r.problem,classificationSource:r.classification_source,aiNote:r.ai_note,gpsAccuracy:Number(r.user_accuracy_m||0),matchedBookingId:r.matched_booking_id?Number(r.matched_booking_id):null,matchedWorkerId:r.matched_worker_id?Number(r.matched_worker_id):null,workerName:r.worker_name||null,workerRating:Number(r.worker_rating||0),workerExperience:Number(r.experience_years||0),matchedPrice:r.matched_price==null?null:Number(r.matched_price),matchedDistanceKm:r.matched_distance_km==null?null:Number(r.matched_distance_km),eligibleWorkers:Number(r.eligible_workers||0),reachedWorkers:Number(r.reached_workers||0),requestedAt:r.requested_at,matchedAt:r.matched_at,expiresAt:r.expires_at}});
 }catch(e){next(e)}});
 
 router.post('/requests/:id/cancel',auth,authorize('USER'),async(req,res,next)=>{try{
@@ -310,20 +322,26 @@ router.post('/requests/:id/cancel',auth,authorize('USER'),async(req,res,next)=>{
 
 router.get('/worker/availability',auth,authorize('WORKER'),async(req,res,next)=>{try{
   await ensureEmergencySchema();
-  const [rows]=await pool.query('SELECT id,COALESCE(instant_available,1) instant_available FROM workers WHERE user_id=? LIMIT 1',[req.user.id]);
+  const [rows]=await pool.query('SELECT id,COALESCE(instant_available,0) instant_available,verification_status,is_banned,profile_deleted_at FROM workers WHERE user_id=? LIMIT 1',[req.user.id]);
   if(!rows.length)return res.status(404).json({success:false,message:'Worker profile not found'});
   const gps=await currentFreshLocation(req.user.id);
-  res.json({success:true,data:{workerId:Number(rows[0].id),instantAvailable:Boolean(rows[0].instant_available),gpsReady:Boolean(gps.ok),gpsAccuracy:gps.ok?Math.round(gps.accuracy):null,gpsMessage:gps.ok?null:gps.message}});
+  const eligibleProfile=rows[0].verification_status==='VERIFIED'&&!rows[0].is_banned&&!rows[0].profile_deleted_at;
+  res.json({success:true,data:{workerId:Number(rows[0].id),instantAvailable:Boolean(rows[0].instant_available),eligibleProfile,gpsReady:Boolean(gps.ok),gpsAccuracy:gps.ok?Math.round(gps.accuracy):null,gpsMessage:gps.ok?null:gps.message}});
 }catch(e){next(e)}});
 
 router.put('/worker/availability',auth,authorize('WORKER'),async(req,res,next)=>{try{
   await ensureEmergencySchema();
-  const available=Boolean(req.body.available);
-  const [workers]=await pool.query('SELECT id,is_banned,profile_deleted_at FROM workers WHERE user_id=? LIMIT 1',[req.user.id]);
+  const available=req.body.available===true;
+  const [workers]=await pool.query('SELECT id,verification_status,is_banned,profile_deleted_at FROM workers WHERE user_id=? LIMIT 1',[req.user.id]);
   if(!workers.length)return res.status(404).json({success:false,message:'Worker profile not found'});
-  if(available&&(workers[0].is_banned||workers[0].profile_deleted_at))return res.status(403).json({success:false,message:'Restricted/deleted worker profiles cannot receive Instant Jobs'});
-  await pool.query('UPDATE workers SET instant_available=? WHERE id=?',[available?1:0,workers[0].id]);
-  if(!available)await pool.query("UPDATE emergency_offers eo JOIN emergency_requests er ON er.id=eo.request_id SET eo.status='DECLINED',eo.responded_at=CURRENT_TIMESTAMP WHERE eo.worker_id=? AND er.status='SEARCHING' AND eo.status IN ('QUEUED','OFFERED')",[workers[0].id]);
+  const worker=workers[0];
+  if(available&&(worker.verification_status!=='VERIFIED'||worker.is_banned||worker.profile_deleted_at))return res.status(403).json({success:false,message:'Only active verified worker profiles can receive Instant Jobs'});
+  if(available){
+    const gps=await currentFreshLocation(req.user.id);
+    if(!gps.ok)return res.status(422).json({success:false,message:gps.message});
+  }
+  await pool.query('UPDATE workers SET instant_available=? WHERE id=?',[available?1:0,worker.id]);
+  if(!available)await pool.query("UPDATE emergency_offers eo JOIN emergency_requests er ON er.id=eo.request_id SET eo.status='DECLINED',eo.responded_at=CURRENT_TIMESTAMP WHERE eo.worker_id=? AND er.status='SEARCHING' AND eo.status IN ('QUEUED','OFFERED')",[worker.id]);
   res.json({success:true,data:{instantAvailable:available}});
 }catch(e){next(e)}});
 
