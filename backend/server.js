@@ -78,6 +78,7 @@ app.use('/api/support',require('./routes/support'));
 app.use('/api/welfare',require('./routes/welfare'));
 app.use('/api/admin/welfare',require('./routes/admin-welfare'));
 app.use('/api/admin/intelligence',require('./routes/admin-intelligence'));
+app.use('/api/admin',require('./routes/admin-worker-management'));
 app.use('/api/admin',require('./routes/admin'));
 app.use('/api/ai',require('./routes/ai'));
 app.use('/api/chat',require('./routes/chat'));
