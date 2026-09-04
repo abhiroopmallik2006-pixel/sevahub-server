@@ -84,9 +84,6 @@ async function moderationByWorker(workerId,db=pool){
 async function assertWorkerActive(userId,db=pool){
   const moderation=await moderationByUser(userId,db);
   if(!moderation)return {ok:false,message:'Worker profile not found',moderation:null};
-  if(moderation.profileDeleted){
-    return {ok:false,message:`Worker profile has been removed by the cooperative${moderation.profileDeletedReason?`: ${moderation.profileDeletedReason}`:''}`,moderation};
-  }
   if(moderation.isBanned){
     return {ok:false,message:`Worker account is restricted${moderation.banReason?`: ${moderation.banReason}`:''}`,moderation};
   }
