@@ -1,0 +1,7 @@
+/* Cooperative admin skill certificate review. */
+.admin-skill-cert-panel .toolbar{align-items:flex-start;gap:14px;flex-wrap:wrap}
+.admin-skill-cert-panel .toolbar h2{margin-bottom:5px}
+.admin-skill-cert-panel table td{vertical-align:top}
+.admin-skill-cert-panel .actions{min-width:230px}
+.admin-cert-reason{display:inline-block;max-width:240px;white-space:normal;margin-top:5px;line-height:1.35}
+@media(max-width:760px){.admin-skill-cert-panel .actions{min-width:0}}
