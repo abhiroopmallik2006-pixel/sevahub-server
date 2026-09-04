@@ -1,30 +1,17 @@
 const pool=require('../config');
 
+const SKILL_CERTIFICATE_TABLE='worker_skill_certificates_v2';
 let ensurePromise=null;
-
-async function columnNames(){
-  const [rows]=await pool.query(`
-    SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='worker_skill_certificates'
-  `);
-  return new Set(rows.map(r=>String(r.COLUMN_NAME)));
-}
-
-async function indexNames(){
-  const [rows]=await pool.query(`
-    SELECT DISTINCT INDEX_NAME
-    FROM INFORMATION_SCHEMA.STATISTICS
-    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='worker_skill_certificates'
-  `);
-  return new Set(rows.map(r=>String(r.INDEX_NAME)));
-}
 
 async function ensureSkillCertificateTable(){
   if(ensurePromise)return ensurePromise;
   ensurePromise=(async()=>{
+    // Use a clean v2 table so older/incomplete certificate schemas on deployed
+    // databases cannot break the worker Profile screen with a generic 500.
+    // No foreign keys are used here intentionally: the application already
+    // validates worker/service ids and this keeps deployment portable.
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS worker_skill_certificates (
+      CREATE TABLE IF NOT EXISTS ${SKILL_CERTIFICATE_TABLE} (
         id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         worker_id INT NOT NULL UNIQUE,
         service_id INT NULL,
@@ -40,45 +27,30 @@ async function ensureSkillCertificateTable(){
         uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         reviewed_at TIMESTAMP NULL DEFAULT NULL,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_skill_cert_status (status,updated_at),
-        INDEX idx_skill_cert_service (service_id,status),
-        CONSTRAINT fk_skill_cert_worker FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE,
-        CONSTRAINT fk_skill_cert_service FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE SET NULL
+        INDEX idx_skill_cert_v2_status (status,updated_at),
+        INDEX idx_skill_cert_v2_service (service_id,status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
-    // Render/older databases may already have an earlier version of the table.
-    // CREATE TABLE IF NOT EXISTS does not add newer columns, so repair the schema
-    // before the API reads it instead of returning a generic 500 Server error.
-    const cols=await columnNames();
-    const additions=[
-      ['service_id',"ADD COLUMN service_id INT NULL AFTER worker_id"],
-      ['title',"ADD COLUMN title VARCHAR(160) NOT NULL DEFAULT 'Skill Certificate' AFTER service_id"],
-      ['issuer',"ADD COLUMN issuer VARCHAR(160) NULL AFTER title"],
-      ['file_name',"ADD COLUMN file_name VARCHAR(255) NOT NULL DEFAULT 'certificate.pdf' AFTER issuer"],
-      ['mime_type',"ADD COLUMN mime_type VARCHAR(80) NOT NULL DEFAULT 'application/pdf' AFTER file_name"],
-      ['file_size',"ADD COLUMN file_size INT NOT NULL DEFAULT 0 AFTER mime_type"],
-      ['file_data',"ADD COLUMN file_data LONGBLOB NULL AFTER file_size"],
-      ['status',"ADD COLUMN status ENUM('PENDING','VERIFIED','REJECTED') NOT NULL DEFAULT 'PENDING' AFTER file_data"],
-      ['review_reason',"ADD COLUMN review_reason VARCHAR(500) NULL AFTER status"],
-      ['reviewed_by',"ADD COLUMN reviewed_by VARCHAR(150) NULL AFTER review_reason"],
-      ['uploaded_at',"ADD COLUMN uploaded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP AFTER reviewed_by"],
-      ['reviewed_at',"ADD COLUMN reviewed_at TIMESTAMP NULL DEFAULT NULL AFTER uploaded_at"],
-      ['updated_at',"ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER reviewed_at"]
-    ];
-    for(const [name,sql] of additions){
-      if(!cols.has(name)){
-        await pool.query(`ALTER TABLE worker_skill_certificates ${sql}`);
-        cols.add(name);
+    // Best-effort migration from the earlier table. It is intentionally ignored
+    // when an old deployment has a partial/incompatible schema.
+    try{
+      const [tables]=await pool.query("SHOW TABLES LIKE 'worker_skill_certificates'");
+      if(tables.length){
+        const [cols]=await pool.query(`SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='worker_skill_certificates'`);
+        const names=new Set(cols.map(r=>String(r.COLUMN_NAME)));
+        const required=['worker_id','service_id','title','issuer','file_name','mime_type','file_size','file_data','status','review_reason','reviewed_by','uploaded_at','reviewed_at','updated_at'];
+        if(required.every(name=>names.has(name))){
+          await pool.query(`
+            INSERT IGNORE INTO ${SKILL_CERTIFICATE_TABLE}
+              (worker_id,service_id,title,issuer,file_name,mime_type,file_size,file_data,status,review_reason,reviewed_by,uploaded_at,reviewed_at,updated_at)
+            SELECT worker_id,service_id,title,issuer,file_name,mime_type,file_size,file_data,status,review_reason,reviewed_by,uploaded_at,reviewed_at,updated_at
+            FROM worker_skill_certificates
+          `);
+        }
       }
-    }
-
-    const indexes=await indexNames();
-    if(!indexes.has('idx_skill_cert_status')){
-      await pool.query('ALTER TABLE worker_skill_certificates ADD INDEX idx_skill_cert_status (status,updated_at)');
-    }
-    if(!indexes.has('idx_skill_cert_service')){
-      await pool.query('ALTER TABLE worker_skill_certificates ADD INDEX idx_skill_cert_service (service_id,status)');
+    }catch(e){
+      console.warn('[Skill Certificates] Legacy migration skipped:',e.message);
     }
 
     return true;
@@ -122,4 +94,4 @@ function safeCertificateFilename(value,mime){
   return stem+ext;
 }
 
-module.exports={ensureSkillCertificateTable,certificateMeta,detectedMime,safeCertificateFilename};
+module.exports={SKILL_CERTIFICATE_TABLE,ensureSkillCertificateTable,certificateMeta,detectedMime,safeCertificateFilename};
