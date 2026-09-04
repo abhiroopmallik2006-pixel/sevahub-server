@@ -40,6 +40,11 @@ CREATE TABLE IF NOT EXISTS workers (
   introduction TEXT,
   rating DECIMAL(3,2) DEFAULT 0,
   total_reviews INT DEFAULT 0,
+  is_banned TINYINT(1) NOT NULL DEFAULT 0,
+  ban_reason VARCHAR(500),
+  banned_at TIMESTAMP NULL DEFAULT NULL,
+  profile_deleted_at TIMESTAMP NULL DEFAULT NULL,
+  profile_deleted_reason VARCHAR(500),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -62,6 +67,15 @@ CREATE TABLE IF NOT EXISTS worker_services (
   UNIQUE KEY uq_worker_service (worker_id, service_id),
   FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE,
   FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS worker_suspended_services (
+  worker_id INT NOT NULL,
+  service_id INT NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  suspended_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (worker_id,service_id),
+  INDEX idx_suspended_service (service_id)
 );
 
 CREATE TABLE IF NOT EXISTS worker_availability (
@@ -165,6 +179,17 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS admin_worker_deletion_log (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  worker_id INT NOT NULL,
+  action VARCHAR(40) NOT NULL,
+  reason VARCHAR(500),
+  admin_email VARCHAR(150),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_worker_delete_log_worker (worker_id),
+  INDEX idx_worker_delete_log_action (action)
 );
 
 INSERT IGNORE INTO services (name,description,icon,base_price) VALUES
