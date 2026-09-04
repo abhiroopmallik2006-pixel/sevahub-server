@@ -3,12 +3,9 @@
   const PLATFORM_FEE_PERCENT=2;
   let decorating=false;
 
-  function role(){
-    try{return String(state?.role||'').toUpperCase()}catch(e){return ''}
-  }
   function fmtMoney(v){return Number(v||0).toFixed(2)}
   function fmtDate(value){
-    if(!value)return '—';
+    if(!value)return '-';
     const d=new Date(value);
     if(Number.isNaN(d.getTime()))return String(value);
     return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -41,8 +38,8 @@
       bookingId:Number(bookingId),
       service:booking?.service_name||history?.service_name||'Service',
       status:String(booking?.status||'COMPLETED').replaceAll('_',' '),
-      workerName:booking?.worker_user_name||history?.worker_name||'—',
-      customerName:booking?.customer_name||history?.customer_name||'—',
+      workerName:booking?.worker_user_name||history?.worker_name||'-',
+      customerName:booking?.customer_name||history?.customer_name||'-',
       createdAt:booking?.created_at||null,
       scheduledDate:booking?.booking_date||history?.booking_date||null,
       scheduledTime:booking?.booking_time||null,
@@ -82,7 +79,8 @@
   function labelValue(doc,label,value,x,y,labelWidth=45){
     doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(100,100,100);doc.text(label,x,y);
     doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);
-    const lines=doc.splitTextToSize(String(value??'—'),120);
+    const maxWidth=Math.max(25,192-(x+labelWidth));
+    const lines=doc.splitTextToSize(String(value??'-'),maxWidth);
     doc.text(lines,x+labelWidth,y);
     return Math.max(6,lines.length*5);
   }
@@ -104,7 +102,7 @@
     }
     const button=document.querySelector(`[data-invoice-booking-id="${Number(bookingId)}"]`);
     const old=button?.textContent;
-    if(button){button.disabled=true;button.textContent='Preparing PDF…'}
+    if(button){button.disabled=true;button.textContent='Preparing PDF...'}
     try{
       const r=await fetchInvoiceData(bookingId,viewerRole);
       const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
@@ -125,7 +123,7 @@
       labelValue(doc,'Status',r.status,23,y,34);
       y=66;
       y+=labelValue(doc,viewerRole==='WORKER'?'Customer':'Worker',viewerRole==='WORKER'?r.customerName:r.workerName,108,y,30);
-      y+=labelValue(doc,'Payment',`${r.paymentMethod} · ${r.paymentStatus}`,108,y,30);
+      y+=labelValue(doc,'Payment',`${r.paymentMethod} - ${r.paymentStatus}`,108,y,30);
       labelValue(doc,'Receipt',r.receiptNumber||'Not issued / cash record',108,y,30);
 
       doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...orange);doc.text('Transaction timeline',18,105);
@@ -133,7 +131,7 @@
       y=117;
       y+=labelValue(doc,'Booked',fmtDate(r.createdAt),23,y,38);
       const scheduled=[r.scheduledDate?String(r.scheduledDate).slice(0,10):'',r.scheduledTime?String(r.scheduledTime).slice(0,5):''].filter(Boolean).join(' ');
-      y+=labelValue(doc,'Scheduled',scheduled||'—',23,y,38);
+      y+=labelValue(doc,'Scheduled',scheduled||'-',23,y,38);
       y+=labelValue(doc,'Completed',fmtDate(r.completedAt),23,y,38);
       if(r.paidAt)y+=labelValue(doc,'Paid',fmtDate(r.paidAt),23,y,38);
 
@@ -165,7 +163,7 @@
         ?'Cash payments are settled directly between customer and worker. This PDF records the SevaHub booking amount and platform-fee breakdown.'
         :'This PDF summarizes transaction information recorded in SevaHub. It is a platform transaction statement, not a statutory tax invoice unless separately issued.';
       doc.text(doc.splitTextToSize(note,174),18,noteY+7);
-      doc.setFont('helvetica','bold');doc.setTextColor(...orange);doc.text('SevaHub · Cooperative services with transparent worker earnings',18,286);
+      doc.setFont('helvetica','bold');doc.setTextColor(...orange);doc.text('SevaHub - Cooperative services with transparent worker earnings',18,286);
       doc.setFont('helvetica','normal');doc.setTextColor(120,120,120);doc.text(`Booking #${r.bookingId}`,192,286,{align:'right'});
 
       const kind=viewerRole==='WORKER'?'Earnings':'Invoice';
