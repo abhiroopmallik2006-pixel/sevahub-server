@@ -9,6 +9,7 @@
   let queuedSample=null;
   let heartbeatTimer=null;
   let bootTimer=null;
+  let lastAccountKey='';
 
   const MIN_SEND_MS=1500;
   const HEARTBEAT_MS=9000;
@@ -18,6 +19,9 @@
 
   function loggedIn(){
     try{return Boolean(window.state?.user&&window.state?.role)}catch(e){return false}
+  }
+  function accountKey(){
+    try{return loggedIn()?`${window.state.role}:${Number(window.state.user.id)||0}`:''}catch(e){return ''}
   }
   function demoMode(){
     try{return Boolean(window.isDemo)}catch(e){return false}
@@ -165,7 +169,14 @@
     }else stopWatch();
   }
 
-  const originalStart=window.startLocationSharing;
+  function scheduleAccountBoot(){
+    const key=accountKey();
+    if(key===lastAccountKey)return;
+    lastAccountKey=key;
+    clearTimeout(bootTimer);
+    bootTimer=setTimeout(boot,150);
+  }
+
   window.startLocationSharing=async function(){
     if(demoMode())return typeof toast==='function'&&toast('Live GPS needs Server mode');
     if(!navigator.geolocation)return typeof toast==='function'&&toast('GPS is not supported on this device');
@@ -200,11 +211,11 @@
 
   window.addEventListener('focus',()=>{
     if(watchId!==null)forceFreshSync(false);
-    else boot();
+    else scheduleAccountBoot();
   });
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible'){
-      if(watchId!==null)forceFreshSync(false);else boot();
+      if(watchId!==null)forceFreshSync(false);else scheduleAccountBoot();
     }
   });
   window.addEventListener('sevahub:native-location-permission',e=>{
@@ -212,11 +223,11 @@
   });
 
   const app=document.getElementById('app')||document.body;
-  const observer=new MutationObserver(()=>{
-    clearTimeout(bootTimer);
-    bootTimer=setTimeout(boot,250);
-  });
+  const observer=new MutationObserver(scheduleAccountBoot);
   observer.observe(app,{childList:true,subtree:true});
 
-  setTimeout(boot,300);
+  setTimeout(()=>{
+    lastAccountKey=accountKey();
+    boot();
+  },300);
 })();
