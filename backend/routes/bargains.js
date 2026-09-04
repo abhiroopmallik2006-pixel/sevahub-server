@@ -99,7 +99,7 @@ router.put('/:id/respond',auth,async(req,res,next)=>{
       await conn.rollback();
       return res.status(400).json({success:false,message:'Offer is no longer active'});
     }
-    const [bookingRows]=await conn.query(`SELECT b.worker_id,w.is_banned,w.ban_reason FROM bookings b JOIN workers w ON w.id=b.worker_id WHERE b.id=? LIMIT 1`,[o.booking_id]);
+    const [bookingRows]=await conn.query(`SELECT b.user_id,b.worker_id,w.user_id worker_user_id,w.is_banned,w.ban_reason FROM bookings b JOIN workers w ON w.id=b.worker_id WHERE b.id=? LIMIT 1`,[o.booking_id]);
     if(!bookingRows.length){await conn.rollback();return res.status(404).json({success:false,message:'Booking not found'});}
     if(Boolean(bookingRows[0].is_banned)){
       await conn.rollback();
@@ -120,14 +120,19 @@ router.put('/:id/respond',auth,async(req,res,next)=>{
 
     if(action==='REJECT'){
       await conn.query("UPDATE bargain_offers SET status='REJECTED',responded_at=NOW() WHERE id=?",[o.id]);
-      await conn.query("UPDATE bookings SET status='BARGAINING' WHERE id=?",[o.booking_id]);
+      await conn.query("UPDATE bargain_offers SET status='REJECTED',responded_at=NOW() WHERE booking_id=? AND status='PENDING' AND id<>?",[o.booking_id,o.id]);
+      await conn.query("UPDATE bookings SET status='CANCELLED',completion_pin=NULL,customer_tpin=NULL,tpin_attempts=0,tpin_expires_at=NULL WHERE id=?",[o.booking_id]);
       await conn.commit();
       const wasWorkerOffer=o.sender_role==='WORKER';
       await notify(req.app,o.sender_id,
-        wasWorkerOffer?'Counter-offer rejected':'Price proposal rejected',
-        wasWorkerOffer?`Customer rejected your counter-offer for Booking #${o.booking_id}.`:`Worker rejected your price proposal for Booking #${o.booking_id}.`,
+        wasWorkerOffer?'Counter-offer rejected · booking cancelled':'Price proposal rejected · booking cancelled',
+        wasWorkerOffer?`Customer rejected your counter-offer. Booking #${o.booking_id} has been cancelled.`:`Worker rejected your price proposal. Booking #${o.booking_id} has been cancelled.`,
         'BARGAIN');
-      return res.json({success:true,message:'Offer rejected; either side may send another proposal.'});
+      const b=bookingRows[0];
+      const io=req.app.get('io');
+      io?.to(`user-${b.user_id}`).emit('booking-cancelled',{bookingId:o.booking_id,reason:'BARGAIN_REJECTED'});
+      io?.to(`user-${b.worker_user_id}`).emit('booking-cancelled',{bookingId:o.booking_id,reason:'BARGAIN_REJECTED'});
+      return res.json({success:true,message:'Offer rejected and booking cancelled.',data:{bookingId:o.booking_id,status:'CANCELLED'}});
     }
 
     await conn.query("UPDATE bargain_offers SET status='COUNTERED',responded_at=NOW() WHERE id=?",[o.id]);
