@@ -6,10 +6,11 @@ const {ensureWorkerModeration}=require('../utils/workerModeration');
 
 const router=express.Router();
 const USER_GPS_FRESH_SECONDS=45;
-const DISCOVERY_GPS_FRESH_SECONDS=120;
+const DISCOVERY_GPS_FRESH_SECONDS=300;
 const MAX_GPS_ACCURACY_M=500;
 const SEARCH_TTL_SECONDS=90;
 const INITIAL_WAVE=3;
+const MAX_DISCOVERY_RADIUS_KM=30;
 let schemaPromise=null;
 
 async function columnExists(table,column){
@@ -91,6 +92,12 @@ function distanceKm(aLat,aLng,bLat,bLng){
   return R*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
 }
 
+function radiusMultiplier(elapsedSeconds){
+  if(elapsedSeconds<25)return 1;
+  if(elapsedSeconds<55)return 1.5;
+  return 2;
+}
+
 async function currentFreshUserLocation(userId){
   const [rows]=await pool.query(`SELECT latitude,longitude,accuracy_m,captured_at,updated_at,sharing_enabled
     FROM user_locations WHERE user_id=? LIMIT 1`,[userId]);
@@ -104,7 +111,7 @@ async function currentFreshUserLocation(userId){
   return {ok:true,latitude:Number(l.latitude),longitude:Number(l.longitude),accuracy,capturedAt:captured};
 }
 
-async function eligibleCandidates(serviceId,userLocation){
+async function eligibleCandidates(serviceId,userLocation,elapsedSeconds=0){
   const [rows]=await pool.query(`SELECT w.id worker_id,w.user_id worker_user_id,u.full_name,w.experience_years,w.rating,w.total_reviews,
       w.service_radius,ws.price,l.latitude,l.longitude,l.accuracy_m,l.captured_at,l.updated_at
     FROM worker_services ws
@@ -121,10 +128,12 @@ async function eligibleCandidates(serviceId,userLocation){
       AND COALESCE(l.accuracy_m,9999)<=?
       AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.worker_id=w.id AND b.status IN ('ACCEPTED','IN_PROGRESS'))`,[serviceId,MAX_GPS_ACCURACY_M]);
 
+  const multiplier=radiusMultiplier(elapsedSeconds);
   return rows.map(r=>{
     const d=distanceKm(userLocation.latitude,userLocation.longitude,Number(r.latitude),Number(r.longitude));
-    const radius=Math.max(1,Number(r.service_radius||10));
-    return {...r,distanceKm:d,withinRadius:d<=radius};
+    const workerRadius=Math.max(1,Number(r.service_radius||10));
+    const effectiveRadius=Math.min(MAX_DISCOVERY_RADIUS_KM,workerRadius*multiplier);
+    return {...r,distanceKm:d,effectiveRadius,withinRadius:d<=effectiveRadius};
   }).filter(r=>r.withinRadius).sort((a,b)=>{
     if(Math.abs(a.distanceKm-b.distanceKm)>.15)return a.distanceKm-b.distanceKm;
     const ratingDiff=Number(b.rating||0)-Number(a.rating||0);
@@ -135,15 +144,16 @@ async function eligibleCandidates(serviceId,userLocation){
 
 async function refreshCandidatePool(requestId){
   await ensureSchema();
-  const [requests]=await pool.query(`SELECT id,status,service_id,user_latitude,user_longitude,expires_at
+  const [requests]=await pool.query(`SELECT id,status,service_id,user_latitude,user_longitude,requested_at,expires_at
     FROM emergency_requests WHERE id=? LIMIT 1`,[requestId]);
   const request=requests[0];
   if(!request||request.status!=='SEARCHING'||new Date(request.expires_at).getTime()<=Date.now())return {added:0,total:0};
 
+  const elapsedSeconds=Math.max(0,Math.floor((Date.now()-new Date(request.requested_at).getTime())/1000));
   const candidates=await eligibleCandidates(Number(request.service_id),{
     latitude:Number(request.user_latitude),
     longitude:Number(request.user_longitude)
-  });
+  },elapsedSeconds);
   const [existing]=await pool.query('SELECT worker_id,rank_no FROM emergency_offers WHERE request_id=? ORDER BY rank_no',[requestId]);
   const existingIds=new Set(existing.map(x=>Number(x.worker_id)));
   let nextRank=existing.reduce((m,x)=>Math.max(m,Number(x.rank_no||0)),0)+1;
@@ -155,7 +165,7 @@ async function refreshCandidatePool(requestId){
     if(r.affectedRows){added++;nextRank++}
   }
   const [counts]=await pool.query('SELECT COUNT(*) total FROM emergency_offers WHERE request_id=?',[requestId]);
-  return {added,total:Number(counts[0]?.total||0)};
+  return {added,total:Number(counts[0]?.total||0),elapsedSeconds,radiusMultiplier:radiusMultiplier(elapsedSeconds)};
 }
 
 async function activateInitialOffers(app,requestId){
