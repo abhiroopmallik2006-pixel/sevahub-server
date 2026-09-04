@@ -45,7 +45,9 @@ Never invent worker availability, booking status, OTPs, passwords, transactions 
 Use ₹ for Indian currency.`;
 
 const histories = new Map();
-const MAX_TURNS = 12;
+const MAX_TURNS = 6;
+const MODEL_TIMEOUT_MS = Number(process.env.AI_MODEL_TIMEOUT_MS || 3200);
+const TOTAL_AI_BUDGET_MS = Number(process.env.AI_TOTAL_TIMEOUT_MS || 6200);
 
 function keyFor(context) {
   return String(context?.sessionId || context?.userId || 'anonymous');
@@ -53,26 +55,50 @@ function keyFor(context) {
 
 function uniqueModels() {
   return [
-    process.env.AI_MODEL || 'gemini-3.1-flash-lite',
-    'gemini-3.1-flash-lite',
+    process.env.AI_MODEL || 'gemini-3.5-flash-lite',
     'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
     'gemini-3.6-flash'
   ].filter((model, index, arr) => arr.indexOf(model) === index);
 }
 
-async function callModel({ endpoint, key, model, messages }) {
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: 900
-    })
-  });
+function isFastLocalQuestion(message){
+  const q=String(message||'').trim().toLowerCase();
+  if(!q || q.length>140)return false;
+  if(/^(hi|hii+|hello|hey|helo+|bhai+|bro+|yaar|namaste)\b/.test(q))return true;
+  if(/\b(thanks|thank you|thx|shukriya)\b/.test(q))return true;
+  return /bed|palang|furniture|wood|door|almirah|wardrobe|table|chair|carpenter|clean|safai|plumb|tap|sink|pipe|leak|nal|electric|switch|fan|light|wiring|socket|\bac\b|air conditioner|cooling|fridge|washing machine|microwave|oven|appliance|paint|wall colour|wall color|shift|moving|packing|pest|termite|cockroach|mosquito|laptop|computer|pc|printer|bargain|counter|offer|negotiate|community|society|colony|park/.test(q);
+}
+
+async function callModel({ endpoint, key, model, messages, timeoutMs }) {
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),Math.max(1200,Number(timeoutMs)||MODEL_TIMEOUT_MS));
+  let response;
+  try{
+    response = await fetch(endpoint, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: 520,
+        temperature: 0.45
+      })
+    });
+  }catch(err){
+    if(err?.name==='AbortError'){
+      const timeoutErr=new Error(`Model timed out after ${timeoutMs}ms`);
+      timeoutErr.status=408;
+      throw timeoutErr;
+    }
+    throw err;
+  }finally{
+    clearTimeout(timer);
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => '');
@@ -90,6 +116,8 @@ async function callModel({ endpoint, key, model, messages }) {
 }
 
 async function reply({ message, context = {} }) {
+  if(isFastLocalQuestion(message))return fallback(message,context);
+
   const key = process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
 
   if (!key) return fallback(message, context);
@@ -103,12 +131,12 @@ async function reply({ message, context = {} }) {
 
   history.push({
     role: 'user',
-    content: String(message)
+    content: String(message).slice(0,2400)
   });
 
   const safeContext = {
     role: context.role,
-    bookings: context.bookings || [],
+    bookings: (context.bookings || []).slice(0,5),
     platform: context.platform || {}
   };
 
@@ -124,8 +152,12 @@ async function reply({ message, context = {} }) {
   ];
 
   let lastError;
+  const started=Date.now();
 
   for (const model of uniqueModels()) {
+    const elapsed=Date.now()-started;
+    const remaining=TOTAL_AI_BUDGET_MS-elapsed;
+    if(remaining<900)break;
     try {
       console.log(`[AI] Trying model: ${model}`);
 
@@ -133,10 +165,11 @@ async function reply({ message, context = {} }) {
         endpoint,
         key,
         model,
-        messages
+        messages,
+        timeoutMs:Math.min(MODEL_TIMEOUT_MS,remaining)
       });
 
-      console.log(`[AI] Success with: ${model}`);
+      console.log(`[AI] Success with: ${model} in ${Date.now()-started}ms`);
 
       history.push({
         role: 'assistant',
@@ -150,8 +183,8 @@ async function reply({ message, context = {} }) {
       lastError = err;
       console.warn(`[AI] ${model} failed: ${err.message}`);
 
-      // Capacity/rate/model errors -> automatically try next model.
-      if ([404, 429, 500, 502, 503, 504].includes(err.status)) {
+      // Fast failover for model/capacity/timeout errors.
+      if ([408, 404, 429, 500, 502, 503, 504].includes(err.status)) {
         continue;
       }
 
