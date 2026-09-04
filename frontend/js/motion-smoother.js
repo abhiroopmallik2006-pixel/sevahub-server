@@ -5,6 +5,7 @@
   const reduce=window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const states=new Map();
   let raf=0;
+  let targetRaf=0;
   let lastTime=0;
   let scanRaf=0;
 
@@ -27,7 +28,7 @@
     }
   };
 
-  function parseValue(raw,unit){
+  function parseValue(raw){
     const n=parseFloat(String(raw||''));
     return Number.isFinite(n)?n:null;
   }
@@ -35,7 +36,7 @@
   function readTargets(el,vars){
     const out={};
     for(const [name,unit] of vars){
-      const n=parseValue(el.style.getPropertyValue(name),unit);
+      const n=parseValue(el.style.getPropertyValue(name));
       if(n!==null)out[name]={value:n,unit};
     }
     return out;
@@ -121,9 +122,11 @@
   }
 
   function schedule(){
-    // dashboard-motion.js is loaded first and writes the raw target in its RAF.
-    // A nested RAF lets us read that target afterwards, then interpolate it.
-    requestAnimationFrame(()=>{
+    if(targetRaf||document.hidden)return;
+    // dashboard-motion.js is loaded first, so its RAF is queued before this one.
+    // Read that freshly-written target once per frame, then interpolate toward it.
+    targetRaf=requestAnimationFrame(()=>{
+      targetRaf=0;
       refreshTargets();
       if(!raf){lastTime=0;raf=requestAnimationFrame(frame)}
     });
