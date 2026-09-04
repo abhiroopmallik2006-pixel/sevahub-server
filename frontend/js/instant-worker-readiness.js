@@ -70,9 +70,17 @@
   }
   window.pauseInstantReady=pauseInstantReady;
 
+  function isWorkerOverview(box){
+    if(!box||box.querySelector('.instant-jobs-marker'))return false;
+    const grid=box.querySelector(':scope > .grid.grid-3');
+    if(!grid)return false;
+    const text=(grid.textContent||'').toLowerCase();
+    return text.includes('my service')&&text.includes('working area');
+  }
+
   function renderCard(status){
     const box=document.getElementById('workerContent');
-    if(!box||box.querySelector('.instant-jobs-marker'))return;
+    if(!isWorkerOverview(box))return;
     let card=box.querySelector('.instant-readiness-home');
     if(!card){
       card=document.createElement('div');
@@ -110,7 +118,7 @@
   async function inject(){
     if(!loggedWorker())return;
     const box=document.getElementById('workerContent');
-    if(!box||box.querySelector('.instant-jobs-marker'))return;
+    if(!isWorkerOverview(box)){box?.querySelector('.instant-readiness-home')?.remove();return}
     if(Date.now()-lastRenderAt<800)return;
     lastRenderAt=Date.now();
     try{renderCard(await getReadiness())}catch(e){}
