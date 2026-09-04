@@ -1,0 +1,143 @@
+/* Lightweight interactive MacBook preview.
+   The real dashboard content stays below the MacBook and is rendered only once. */
+.sevahub-macbook3d-screenbody{
+  overflow:hidden!important;
+  padding:18px!important;
+}
+.sevahub-macbook-preview{
+  height:100%;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  color:#3b2b24;
+}
+.sevahub-macbook-preview-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.sevahub-macbook-preview-copy{min-width:0}
+.sevahub-macbook-preview-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 8px;
+  border-radius:999px;
+  background:#f4dfcc;
+  color:#8c431e;
+  font-size:9px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.sevahub-macbook-preview-copy h4{
+  margin:7px 0 3px;
+  font-size:clamp(15px,1.55vw,21px);
+  line-height:1.08;
+  color:#372821;
+}
+.sevahub-macbook-preview-copy p{
+  margin:0;
+  color:#75685f;
+  font-size:10px;
+  line-height:1.35;
+}
+.sevahub-macbook-preview-status{
+  flex:0 0 auto;
+  padding:6px 8px;
+  border-radius:9px;
+  background:#fffaf5;
+  border:1px solid rgba(125,77,48,.13);
+  color:#8b5a3b;
+  font-size:9px;
+  font-weight:800;
+}
+.sevahub-macbook-preview-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+.sevahub-macbook-preview-card{
+  min-width:0;
+  padding:10px;
+  border-radius:11px;
+  border:1px solid rgba(117,74,44,.13);
+  background:rgba(255,252,248,.88);
+}
+.sevahub-macbook-preview-card span{
+  display:block;
+  font-size:15px;
+  line-height:1;
+  margin-bottom:7px;
+}
+.sevahub-macbook-preview-card b{
+  display:block;
+  color:#4c3327;
+  font-size:10px;
+  line-height:1.18;
+}
+.sevahub-macbook-preview-card small{
+  display:block;
+  margin-top:4px;
+  color:#8b796d;
+  font-size:8px;
+  line-height:1.2;
+}
+.sevahub-macbook-preview-note{
+  margin-top:auto;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(185,84,23,.08);
+  color:#77513c;
+  font-size:9px;
+  line-height:1.3;
+}
+.sevahub-macbook-preview-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.sevahub-macbook-preview-btn{
+  min-height:32px;
+  padding:7px 10px;
+  border-radius:9px;
+  border:1px solid rgba(185,84,23,.26);
+  background:#b95417;
+  color:#fff;
+  font:inherit;
+  font-size:9px;
+  font-weight:900;
+  cursor:pointer;
+}
+.sevahub-macbook-preview-btn.secondary{
+  background:#fff8f2;
+  color:#8f431d;
+}
+.sevahub-macbook-preview-btn:focus-visible{
+  outline:2px solid #b95417;
+  outline-offset:2px;
+}
+body.dark .sevahub-macbook-preview{color:#f4ece5}
+body.dark .sevahub-macbook-preview-pill{background:#2b1d16;color:#ffb47a}
+body.dark .sevahub-macbook-preview-copy h4{color:#f5eee9}
+body.dark .sevahub-macbook-preview-copy p{color:#aaa19b}
+body.dark .sevahub-macbook-preview-status{background:#201a17;border-color:#40332c;color:#d8b49d}
+body.dark .sevahub-macbook-preview-card{background:#211b18;border-color:#3e332d}
+body.dark .sevahub-macbook-preview-card b{color:#f0e6df}
+body.dark .sevahub-macbook-preview-card small{color:#a99c94}
+body.dark .sevahub-macbook-preview-note{background:rgba(255,157,88,.08);color:#cbb4a5}
+body.dark .sevahub-macbook-preview-btn.secondary{background:#211a17;color:#ffb47a;border-color:#4b382d}
+@media(max-width:520px){
+  .sevahub-macbook3d-screenbody{padding:12px!important}
+  .sevahub-macbook-preview{gap:8px}
+  .sevahub-macbook-preview-grid{gap:5px}
+  .sevahub-macbook-preview-card{padding:7px}
+  .sevahub-macbook-preview-card span{font-size:12px;margin-bottom:4px}
+  .sevahub-macbook-preview-card b{font-size:8px}
+  .sevahub-macbook-preview-card small{font-size:7px}
+  .sevahub-macbook-preview-note{display:none}
+  .sevahub-macbook-preview-btn{min-height:28px;padding:5px 8px;font-size:8px}
+}
