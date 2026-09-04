@@ -1,0 +1,28 @@
+/* Customer booking cancellation button styling */
+.user-cancel-booking,
+.booking-cancel-actions .user-cancel-booking,
+.booking-list-marker .user-cancel-booking.btn.danger.small{
+  background:#b95417 !important;
+  background-color:#b95417 !important;
+  color:#ffffff !important;
+  border:1px solid #d56b2a !important;
+  box-shadow:0 8px 18px rgba(185,84,23,.22) !important;
+  opacity:1 !important;
+}
+.user-cancel-booking:hover,
+.booking-cancel-actions .user-cancel-booking:hover,
+.booking-list-marker .user-cancel-booking.btn.danger.small:hover{
+  background:#d06424 !important;
+  background-color:#d06424 !important;
+  color:#ffffff !important;
+  border-color:#e27c3c !important;
+}
+.user-cancel-booking:focus-visible{
+  outline:2px solid rgba(255,255,255,.9) !important;
+  outline-offset:2px;
+}
+.user-cancel-booking:disabled{
+  background:#9f4815 !important;
+  color:#ffffff !important;
+  opacity:.72 !important;
+}
