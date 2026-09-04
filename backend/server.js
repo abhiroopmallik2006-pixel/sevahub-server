@@ -67,6 +67,7 @@ io.on('connection',socket=>{
 app.use('/api/auth',require('./routes/auth'));
 app.use('/api/services',require('./routes/services'));
 app.use('/api/workers',require('./routes/workers'));
+app.use('/api/skill-certificates',require('./routes/skill-certificates'));
 app.use('/api/bookings',require('./routes/bookings'));
 app.use('/api/bargains',require('./routes/bargains'));
 app.use('/api/rewards',require('./routes/rewards'));
@@ -80,6 +81,7 @@ app.use('/api/support',require('./routes/support'));
 app.use('/api/welfare',require('./routes/welfare'));
 app.use('/api/admin/welfare',require('./routes/admin-welfare'));
 app.use('/api/admin/intelligence',require('./routes/admin-intelligence'));
+app.use('/api/admin',require('./routes/admin-skill-certificates'));
 app.use('/api/admin',require('./routes/admin-worker-management'));
 app.use('/api/admin',require('./routes/admin'));
 app.use('/api/ai',require('./routes/ai'));
