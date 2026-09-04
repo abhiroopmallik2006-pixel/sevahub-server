@@ -1,0 +1,28 @@
+/* Worker skill certificate verification UI. */
+.skill-certificate-panel{margin-top:18px!important}
+.skill-cert-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.skill-cert-head h2{margin:0 0 6px}
+.skill-cert-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+.skill-cert-details>div{padding:12px;border:1px solid var(--line,#ddd);border-radius:12px;min-width:0}
+.skill-cert-details span{display:block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;opacity:.65;margin-bottom:5px}
+.skill-cert-details b{display:block;overflow-wrap:anywhere}
+.skill-cert-form{margin-top:16px}
+.skill-cert-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:13px}
+.skill-cert-form-grid label{display:grid;gap:6px;font-weight:800}
+.skill-cert-form-grid label.wide{grid-column:1/-1}
+.skill-cert-form-grid input{width:100%;min-width:0}
+.skill-cert-form-grid small{font-weight:500;opacity:.65}
+.skill-cert-reason{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid rgba(190,52,52,.32);border-radius:12px;background:rgba(190,52,52,.08);margin:12px 0}
+.skill-cert-reason span{overflow-wrap:anywhere}
+.skill-cert-note{padding:11px 13px;border-radius:12px;background:rgba(225,147,35,.10);border:1px solid rgba(225,147,35,.28);margin:12px 0}
+.skill-cert-actions{margin-top:12px}
+.skill-cert-empty{padding:18px 0!important}
+.skill-certificate-verified{margin-left:6px;background:rgba(30,153,85,.12)!important;border-color:rgba(30,153,85,.35)!important;color:#16833f!important}
+.dark .skill-certificate-verified,body.dark .skill-certificate-verified{color:#7ee8a8!important;background:rgba(40,184,96,.12)!important}
+@media(max-width:760px){
+  .skill-cert-head{flex-direction:column}
+  .skill-cert-details{grid-template-columns:1fr 1fr}
+  .skill-cert-form-grid{grid-template-columns:1fr}
+  .skill-cert-form-grid label.wide{grid-column:auto}
+}
+@media(max-width:430px){.skill-cert-details{grid-template-columns:1fr}}
