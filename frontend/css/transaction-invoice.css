@@ -1,0 +1,22 @@
+/* Download PDF actions inside Spend History and Earnings History. */
+.transaction-pdf-btn{
+  margin-top:10px!important;
+  background:#b95417!important;
+  color:#fff!important;
+  border:1px solid #d26c2b!important;
+  box-shadow:0 5px 14px rgba(185,84,23,.22)!important;
+  white-space:nowrap;
+}
+.transaction-pdf-btn:hover{
+  background:#d26928!important;
+  color:#fff!important;
+  border-color:#e27d3b!important;
+}
+.transaction-pdf-btn:disabled{
+  opacity:.7!important;
+  cursor:wait!important;
+}
+.history-price-side .transaction-pdf-btn{display:inline-flex;align-items:center;justify-content:center}
+@media(max-width:650px){
+  .transaction-pdf-btn{font-size:11px!important;padding:8px 10px!important;width:100%}
+}
