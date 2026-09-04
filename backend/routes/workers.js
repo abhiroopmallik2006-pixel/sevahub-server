@@ -55,8 +55,12 @@ router.put('/me',auth,authorize('WORKER'),async(req,res,next)=>{
   const conn=await pool.getConnection();
   try{
     await conn.beginTransaction();
-    const [workers]=await conn.query('SELECT id,is_banned,ban_reason FROM workers WHERE user_id=? LIMIT 1 FOR UPDATE',[req.user.id]);
+    const [workers]=await conn.query('SELECT id,is_banned,ban_reason,profile_deleted_at,profile_deleted_reason FROM workers WHERE user_id=? LIMIT 1 FOR UPDATE',[req.user.id]);
     if(!workers.length){await conn.rollback();return res.status(404).json({success:false,message:'Worker profile not found'})}
+    if(workers[0].profile_deleted_at){
+      await conn.rollback();
+      return res.status(403).json({success:false,message:`Your worker profile was removed by the cooperative${workers[0].profile_deleted_reason?`: ${workers[0].profile_deleted_reason}`:''}`});
+    }
     if(Boolean(workers[0].is_banned)){
       await conn.rollback();
       return res.status(403).json({success:false,message:`Profile editing is disabled while your worker account is restricted${workers[0].ban_reason?`: ${workers[0].ban_reason}`:''}`});
@@ -99,7 +103,8 @@ router.get('/:id',async(req,res,next)=>{
     await ensureWorkerModeration(pool);
     const [rows]=await pool.query(`
       SELECT w.*,u.full_name,u.username,u.profile_image,u.email,u.phone
-      FROM workers w JOIN users u ON u.id=w.user_id WHERE w.id=? AND COALESCE(w.is_banned,0)=0`,[req.params.id]);
+      FROM workers w JOIN users u ON u.id=w.user_id
+      WHERE w.id=? AND COALESCE(w.is_banned,0)=0 AND w.profile_deleted_at IS NULL`,[req.params.id]);
     if(!rows.length) return res.status(404).json({success:false,message:'Worker not found'});
     const [services]=await pool.query(`
       SELECT s.id,s.name,ws.price FROM worker_services ws JOIN services s ON s.id=ws.service_id WHERE ws.worker_id=?`,[req.params.id]);
