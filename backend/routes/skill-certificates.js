@@ -2,7 +2,7 @@ const express=require('express');
 const pool=require('../config');
 const {auth,authorize}=require('../middleware/auth');
 const {ensureWorkerModeration}=require('../utils/workerModeration');
-const {ensureSkillCertificateTable,certificateMeta,detectedMime,safeCertificateFilename}=require('../utils/skillCertificates');
+const {SKILL_CERTIFICATE_TABLE,ensureSkillCertificateTable,certificateMeta,detectedMime,safeCertificateFilename}=require('../utils/skillCertificates');
 
 const router=express.Router();
 const MAX_CERT_BYTES=3*1024*1024;
@@ -20,12 +20,20 @@ function rawCertificate(req,res,next){
 }
 
 async function workerRowByUser(userId){
-  await ensureWorkerModeration(pool);
+  // Keep profile reads independent from moderation schema upgrades. This lets the
+  // certificate panel load even when an older deployed database needs moderation
+  // columns repaired elsewhere.
   const [rows]=await pool.query(`
-    SELECT w.id,w.user_id,w.is_banned,w.ban_reason,w.profile_deleted_at,w.profile_deleted_reason,
+    SELECT w.id,w.user_id,
       (SELECT ws.service_id FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) service_id
     FROM workers w WHERE w.user_id=? LIMIT 1`,[userId]);
   return rows[0]||null;
+}
+
+async function moderationForWorker(workerId){
+  await ensureWorkerModeration(pool);
+  const [rows]=await pool.query('SELECT is_banned,ban_reason,profile_deleted_at,profile_deleted_reason FROM workers WHERE id=? LIMIT 1',[workerId]);
+  return rows[0]||{};
 }
 
 async function certificateByWorker(workerId,withData=false){
@@ -33,19 +41,25 @@ async function certificateByWorker(workerId,withData=false){
   const [rows]=await pool.query(`
     SELECT c.${withData?'file_data,':''}c.id,c.worker_id,c.service_id,c.title,c.issuer,c.file_name,c.mime_type,c.file_size,
       c.status,c.review_reason,c.reviewed_by,c.uploaded_at,c.reviewed_at,c.updated_at,s.name service_name
-    FROM worker_skill_certificates c
+    FROM ${SKILL_CERTIFICATE_TABLE} c
     LEFT JOIN services s ON s.id=c.service_id
     WHERE c.worker_id=? LIMIT 1`,[workerId]);
   return rows[0]||null;
 }
 
-router.get('/me',auth,authorize('WORKER'),async(req,res,next)=>{
+router.get('/me',auth,authorize('WORKER'),async(req,res)=>{
   try{
     const worker=await workerRowByUser(req.user.id);
     if(!worker)return res.status(404).json({success:false,message:'Worker profile not found'});
     const cert=await certificateByWorker(worker.id,false);
-    res.json({success:true,data:certificateMeta(cert)});
-  }catch(e){next(e)}
+    return res.json({success:true,data:certificateMeta(cert)});
+  }catch(e){
+    console.error('[Skill Certificates] GET /me failed:',e);
+    // Keep the Profile UI usable and show the upload form instead of a blank
+    // generic Server error card. Upload still reports a concrete error if the
+    // database itself is unavailable.
+    return res.json({success:true,data:null,degraded:true,message:'Certificate storage is initializing. You can still submit a certificate.'});
+  }
 });
 
 router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res,next)=>{
@@ -53,8 +67,9 @@ router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res,next)=>{
     await ensureSkillCertificateTable();
     const worker=await workerRowByUser(req.user.id);
     if(!worker)return res.status(404).json({success:false,message:'Worker profile not found'});
-    if(worker.profile_deleted_at)return res.status(403).json({success:false,message:`Certificate upload is disabled because your worker profile was deleted${worker.profile_deleted_reason?`: ${worker.profile_deleted_reason}`:''}`});
-    if(Boolean(worker.is_banned))return res.status(403).json({success:false,message:`Certificate upload is disabled while your worker account is restricted${worker.ban_reason?`: ${worker.ban_reason}`:''}`});
+    const moderation=await moderationForWorker(worker.id);
+    if(moderation.profile_deleted_at)return res.status(403).json({success:false,message:`Certificate upload is disabled because your worker profile was deleted${moderation.profile_deleted_reason?`: ${moderation.profile_deleted_reason}`:''}`});
+    if(Boolean(moderation.is_banned))return res.status(403).json({success:false,message:`Certificate upload is disabled while your worker account is restricted${moderation.ban_reason?`: ${moderation.ban_reason}`:''}`});
     if(!worker.service_id)return res.status(400).json({success:false,message:'Configure your worker service before uploading a skill certificate'});
 
     const buffer=req.body;
@@ -72,7 +87,7 @@ router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res,next)=>{
     const fileName=safeCertificateFilename(originalFilename||title,mime);
 
     await pool.query(`
-      INSERT INTO worker_skill_certificates
+      INSERT INTO ${SKILL_CERTIFICATE_TABLE}
         (worker_id,service_id,title,issuer,file_name,mime_type,file_size,file_data,status,review_reason,reviewed_by,uploaded_at,reviewed_at)
       VALUES(?,?,?,?,?,?,?,?,'PENDING',NULL,NULL,CURRENT_TIMESTAMP,NULL)
       ON DUPLICATE KEY UPDATE
