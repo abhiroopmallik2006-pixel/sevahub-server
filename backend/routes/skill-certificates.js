@@ -48,8 +48,9 @@ async function moderationForWorker(workerId){
 
 async function certificateByWorker(workerId,withData=false){
   await ensureSkillCertificateTable();
+  const dataColumn=withData?'c.file_data,':'';
   const [rows]=await pool.query(`
-    SELECT c.${withData?'file_data,':''}c.id,c.worker_id,c.service_id,c.title,c.issuer,c.file_name,c.mime_type,c.file_size,
+    SELECT ${dataColumn}c.id,c.worker_id,c.service_id,c.title,c.issuer,c.file_name,c.mime_type,c.file_size,
       c.status,c.review_reason,c.reviewed_by,c.uploaded_at,c.reviewed_at,c.updated_at,s.name service_name
     FROM ${SKILL_CERTIFICATE_TABLE} c
     LEFT JOIN services s ON s.id=c.service_id
@@ -114,8 +115,8 @@ router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res)=>{
     if(code==='ER_BAD_FIELD_ERROR'){
       const match=String(e?.sqlMessage||e?.message||'').match(/Unknown column ['`]([^'`]+)['`]/i);
       message=match
-        ?`Certificate storage was missing database field ${match[1]}. The latest deployment repairs this automatically; please retry once deployment finishes.`
-        :'Certificate storage schema was outdated. The latest deployment repairs it automatically; please retry once deployment finishes.';
+        ?`Certificate upload failed because the server referenced an unknown database field ${match[1]}. Please retry after the latest deployment.`
+        :'Certificate upload failed because the deployed server schema/query is outdated. Please retry after the latest deployment.';
     }else if(code){
       message=`Certificate upload failed on the server (${code}). Please retry after the latest deployment.`;
     }
