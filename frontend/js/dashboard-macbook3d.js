@@ -1,5 +1,5 @@
-/* SevaHub live MacBook workspace.
-   Keeps the active dashboard content inside the MacBook, but avoids continuous scroll/pointer animation work. */
+/* SevaHub lightweight interactive MacBook preview.
+   The MacBook never moves or clones the real dashboard DOM. Real tab content stays below it. */
 (function(){
   const installed={USER:null,WORKER:null};
   let appScanRaf=0;
@@ -9,7 +9,7 @@
       default:['SEVAHUB SERVICE HUB','Your workspace, beautifully organized.','Move between services, bookings, AI help, spending, GEMS and notifications without losing your place.'],
       services:['SEVAHUB SERVICE HUB','Find services in a smoother workspace.','Browse trusted professionals and move from discovery to booking without losing context.'],
       bookings:['SEVAHUB BOOKINGS','Track every booking in one place.','Keep status, bargaining, chat, payment and completion progress together in one focused view.'],
-      ai:['SEVAHUB AI','Ask, understand and book with AI.','Use the assistant for service guidance and the booking flow while your dashboard stays organized.'],
+      ai:['SEVAHUB AI','Ask, understand and book with AI.','Use the assistant for service guidance and booking help while your dashboard stays organized.'],
       spend:['SEVAHUB ACTIVITY','Understand where your service spending goes.','Review completed services and spending history in a clean workspace.'],
       gems:['SEVAHUB REWARDS','Your GEMS wallet at a glance.','Track earned rewards, history and redemptions without leaving your service workspace.'],
       notifications:['SEVAHUB UPDATES','Stay on top of every service update.','Keep booking, payment, support and worker updates easy to scan.'],
@@ -29,23 +29,56 @@
     }
   };
 
+  const previewMap={
+    USER:{
+      default:[['🧰','Services','Browse help'],['📅','Bookings','Track progress'],['✨','AI & GEMS','Smart tools']],
+      services:[['🧰','Services','Browse options'],['✅','Trusted pros','Verified help'],['💬','Fair deals','Bargain safely']],
+      bookings:[['📅','Status','Track jobs'],['💬','Chat','Stay connected'],['💳','Payment','Pay securely']],
+      ai:[['✨','AI help','Ask anything'],['🔎','Discover','Find service'],['📅','Book','Continue below']],
+      spend:[['₹','Spending','View history'],['🧾','Receipts','Track payments'],['📊','Activity','See totals']],
+      gems:[['💎','GEMS','Reward wallet'],['🎁','Rewards','View benefits'],['📜','History','Track activity']],
+      notifications:[['🔔','Updates','Latest alerts'],['📅','Bookings','Status changes'],['🛟','Support','Ticket updates']],
+      support:[['🛟','Support','Create ticket'],['💬','Chat','Talk to admin'],['📜','History','Track issues']],
+      chat:[['💬','Messages','Stay connected'],['📅','Booking','Keep context'],['✅','Progress','Complete work']]
+    },
+    WORKER:{
+      default:[['🧰','Requests','New work'],['📅','Bookings','Manage jobs'],['₹','Earnings','Track income']],
+      overview:[['🧰','Service','Your work'],['📍','Area','Working zone'],['💬','Bargains','Fair offers']],
+      bargains:[['💬','Offers','Review deals'],['↔️','Counter','Negotiate'],['📅','Booking','Keep context']],
+      bookings:[['📅','Jobs','Manage work'],['💬','Customer chat','Stay connected'],['✅','Completion','Finish safely']],
+      earnings:[['₹','Earnings','Completed work'],['🧾','History','Payment record'],['📊','Activity','See totals']],
+      profile:[['👤','Profile','Professional info'],['🛡️','Protection','Welfare & insurance'],['✅','Trust','Verification']],
+      ai:[['✨','AI help','Work assistant'],['🧰','Service','Guidance'],['📅','Jobs','Plan work']],
+      support:[['🛟','Support','Raise issue'],['💬','Admin chat','Get help'],['📜','History','Track tickets']],
+      chat:[['💬','Messages','Customer chat'],['📅','Booking','Keep context'],['✅','Progress','Complete job']]
+    }
+  };
+
   function esc(v=''){
-    return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c]));
+  }
+
+  function sourceText(box){
+    return Array.from(box?.children||[])
+      .filter(node=>!node.matches?.('[data-sevahub-macbook3d]'))
+      .map(node=>node.textContent||'')
+      .join(' ')
+      .toLowerCase();
   }
 
   function detectView(box,role){
-    const text=String(box.textContent||'').toLowerCase();
+    const text=sourceText(box);
     if(text.includes('support center')||text.includes('सहायता केंद्र')||text.includes('chat with admin'))return 'support';
-    if(text.includes('booking chat')||text.includes('chat with worker')||text.includes('chat with customer')||box.querySelector('.booking-chat'))return 'chat';
-    if(text.includes('ai assistant')||text.includes('ai service assistant')||box.querySelector('.ai-panel,.worker-ai-panel'))return 'ai';
+    if(text.includes('booking chat')||text.includes('chat with worker')||text.includes('chat with customer')||box.querySelector(':scope > .booking-chat'))return 'chat';
+    if(text.includes('ai assistant')||text.includes('ai service assistant')||box.querySelector(':scope > .ai-panel,:scope > .worker-ai-panel'))return 'ai';
     if(role==='USER'){
-      if(text.includes('spend history')||box.querySelector('.spend-history-marker'))return 'spend';
-      if(text.includes('gems')||box.querySelector('.gem-wallet,.gem-block'))return 'gems';
+      if(text.includes('spend history')||box.querySelector(':scope > .spend-history-marker'))return 'spend';
+      if(text.includes('gems')||box.querySelector(':scope > .gem-wallet,:scope > .gem-block'))return 'gems';
       if(text.includes('notification'))return 'notifications';
-      if(text.includes('my bookings')||box.querySelector('.booking-list-marker'))return 'bookings';
+      if(text.includes('my bookings')||box.querySelector(':scope > .booking-list-marker'))return 'bookings';
       if(text.includes('popular services')||text.includes('professionals'))return 'services';
     }else{
-      if(text.includes('earnings history')||box.querySelector('.earn-history-marker'))return 'earnings';
+      if(text.includes('earnings history')||box.querySelector(':scope > .earn-history-marker'))return 'earnings';
       if(text.includes('customer bargains')||text.includes('counter-offer'))return 'bargains';
       if(text.includes('my professional profile'))return 'profile';
       if(text.includes('bookings'))return 'bookings';
@@ -59,56 +92,116 @@
     const copy=map[key]||map.default;
     return `<section class="sevahub-macbook3d-section" data-sevahub-macbook3d="1" data-view-key="${esc(key)}">
       <div class="sevahub-macbook3d-copy">
-        <span class="sevahub-macbook3d-kicker">${esc(copy[0])}</span>
-        <h3>${esc(copy[1])}</h3>
-        <p>${esc(copy[2])}</p>
+        <span class="sevahub-macbook3d-kicker" data-mac-copy-kicker>${esc(copy[0])}</span>
+        <h3 data-mac-copy-title>${esc(copy[1])}</h3>
+        <p data-mac-copy-desc>${esc(copy[2])}</p>
       </div>
       <div class="sevahub-macbook3d" data-sevahub-macbook-card="1">
         <div class="sevahub-macbook3d-notch"></div>
         <div class="sevahub-macbook3d-screen">
           <div class="sevahub-macbook3d-screenbar"><b>SEVAHUB</b><span>${role==='WORKER'?'Worker':'User'} workspace</span></div>
-          <div class="sevahub-macbook3d-screenbody"></div>
+          <div class="sevahub-macbook3d-screenbody" data-mac-preview-screen></div>
         </div>
         <div class="sevahub-macbook3d-base"><span></span></div>
       </div>
     </section>`;
   }
 
-  function mountContent(box,section,role,key){
-    const screen=section?.querySelector('.sevahub-macbook3d-screenbody');
-    if(!screen)return;
-    const nodes=Array.from(box.children).filter(node=>node!==section);
-    if(!nodes.length)return;
-    const live=document.createElement('div');
-    live.className=`sevahub-macbook-live-content sevahub-macbook-live-${role.toLowerCase()} sevahub-macbook-live-${key}`;
-    nodes.forEach(node=>live.appendChild(node));
-    screen.replaceChildren(live);
-    screen.classList.add('sevahub-macbook-scrollable');
-    if(role==='WORKER'&&key==='overview')live.querySelector('.grid.grid-3')?.classList.add('sevahub-macbook-overview-grid');
-    if(role==='USER'&&key==='services')live.querySelector('.card.panel')?.classList.add('sevahub-macbook-services-panel');
+  function previewHTML(role,key){
+    const roleMap=previewMap[role]||previewMap.USER;
+    const tiles=roleMap[key]||roleMap.default;
+    const title=(copyMap[role]?.[key]||copyMap[role]?.default||copyMap.USER.default)[1];
+    return `<div class="sevahub-macbook-preview">
+      <div class="sevahub-macbook-preview-top">
+        <div class="sevahub-macbook-preview-copy">
+          <span class="sevahub-macbook-preview-pill">⚡ Lightweight preview</span>
+          <h4>${esc(title)}</h4>
+          <p>Quick overview here. Full interactive content stays right below the MacBook.</p>
+        </div>
+        <span class="sevahub-macbook-preview-status">LIVE TAB</span>
+      </div>
+      <div class="sevahub-macbook-preview-grid">
+        ${tiles.map(tile=>`<div class="sevahub-macbook-preview-card"><span>${esc(tile[0])}</span><b>${esc(tile[1])}</b><small>${esc(tile[2])}</small></div>`).join('')}
+      </div>
+      <div class="sevahub-macbook-preview-note">The real dashboard is rendered once only, below this preview, for smoother scrolling and tab switching.</div>
+      <div class="sevahub-macbook-preview-actions">
+        <button type="button" class="sevahub-macbook-preview-btn" data-mac-action="open">Open full view ↓</button>
+        <button type="button" class="sevahub-macbook-preview-btn secondary" data-mac-action="focus">Focus first action</button>
+      </div>
+    </div>`;
+  }
+
+  function realChildren(box){
+    return Array.from(box?.children||[]).filter(node=>!node.matches?.('[data-sevahub-macbook3d]'));
+  }
+
+  function openFullView(box){
+    const first=realChildren(box)[0];
+    if(first?.scrollIntoView)first.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  function focusFirstAction(box){
+    const selector='button:not([disabled]),a[href],input:not([type="hidden"]):not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    let target=null;
+    for(const root of realChildren(box)){
+      if(root.matches?.(selector)){target=root;break}
+      target=Array.from(root.querySelectorAll?.(selector)||[]).find(el=>el.getClientRects().length>0)||null;
+      if(target)break;
+    }
+    if(!target){openFullView(box);return}
+    target.scrollIntoView?.({behavior:'smooth',block:'center'});
+    setTimeout(()=>{try{target.focus({preventScroll:true})}catch(e){try{target.focus()}catch(_){} }},260);
+  }
+
+  function wireSection(section,box){
+    if(!section||section.dataset.macPreviewWired==='1')return;
+    section.dataset.macPreviewWired='1';
+    section.addEventListener('click',event=>{
+      const action=event.target.closest?.('[data-mac-action]');
+      if(!action||!section.contains(action))return;
+      if(action.dataset.macAction==='open')openFullView(box);
+      else if(action.dataset.macAction==='focus')focusFirstAction(box);
+    });
+  }
+
+  function renderPreview(box,section,role,key){
+    const copy=copyMap[role]?.[key]||copyMap[role]?.default||copyMap.USER.default;
+    section.dataset.viewKey=key;
+    const kicker=section.querySelector('[data-mac-copy-kicker]');
+    const title=section.querySelector('[data-mac-copy-title]');
+    const desc=section.querySelector('[data-mac-copy-desc]');
+    if(kicker)kicker.textContent=copy[0];
+    if(title)title.textContent=copy[1];
+    if(desc)desc.textContent=copy[2];
+    const screen=section.querySelector('[data-mac-preview-screen]');
+    if(screen)screen.innerHTML=previewHTML(role,key);
+    wireSection(section,box);
   }
 
   function enhance(box,role){
     if(!box||!box.isConnected)return;
-    if(box.querySelector(':scope > [data-sevahub-macbook3d]'))return;
     const key=detectView(box,role);
-    box.insertAdjacentHTML('afterbegin',macbookHTML(role,key));
-    mountContent(box,box.querySelector(':scope > [data-sevahub-macbook3d]'),role,key);
+    let section=box.querySelector(':scope > [data-sevahub-macbook3d]');
+    if(!section){
+      box.insertAdjacentHTML('afterbegin',macbookHTML(role,key));
+      section=box.querySelector(':scope > [data-sevahub-macbook3d]');
+    }
+    if(section)renderPreview(box,section,role,key);
   }
 
   function install(box,role){
     const old=installed[role];
-    if(old?.box===box){
-      enhance(box,role);
-      return;
-    }
+    if(old?.box===box){enhance(box,role);return}
     old?.observer?.disconnect();
     installed[role]=null;
     if(!box)return;
 
     let pending=false;
-    const observer=new MutationObserver(()=>{
-      if(box.querySelector(':scope > [data-sevahub-macbook3d]')||pending)return;
+    const observer=new MutationObserver(mutations=>{
+      const relevant=mutations.some(m=>m.target===box&&[...m.addedNodes,...m.removedNodes].some(node=>{
+        return !(node.nodeType===1&&node.matches?.('[data-sevahub-macbook3d]'));
+      }));
+      if(!relevant||pending)return;
       pending=true;
       requestAnimationFrame(()=>{pending=false;enhance(box,role)});
     });
