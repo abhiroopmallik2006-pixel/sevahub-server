@@ -1,40 +1,36 @@
 /* SevaHub aggressive visual performance overrides.
    Keeps the same layout/content while reducing large GPU layers and backdrop blur. */
 
-/* MacBook stays open and live, but no continuous 3D rasterization layer. */
+/* The laptop's lid is animated separately, without promoting the entire workspace. */
 .sevahub-macbook3d{
   transform:none!important;
   transform-style:flat!important;
   will-change:auto!important;
 }
-.sevahub-macbook3d-section{perspective:none!important}
 .sevahub-macbook3d-screen{
   box-shadow:0 14px 30px rgba(30,20,15,.20)!important;
   contain:layout paint style;
 }
 .sevahub-macbook-live-content{contain:layout style}
 
-/* Disable per-card 3D promotion if any older markup still carries the class. */
-.sevahub-fx-3d-card{
+/* Keep legacy cards flat; the motion controller promotes only the active card. */
+.sevahub-fx-3d-card:not(.sev-motion-card){
   transform:none!important;
   transform-style:flat!important;
   will-change:auto!important;
   transition:box-shadow .18s ease!important;
 }
 
-/* Top dashboard preview remains visually the same but stops moving every scroll frame. */
+/* The shared ZIP motion controller updates visible previews on scroll only. */
 .dashboard-scroll-card{
-  transform:none!important;
   opacity:1!important;
-  transform-style:flat!important;
   will-change:auto!important;
-  transition:none!important;
 }
 .dashboard-scroll-glow{
   filter:none!important;
   opacity:.38;
 }
-.dashboard-scroll-stage{contain:layout paint style}
+.dashboard-scroll-stage{contain:layout style}
 
 /* Avoid expensive backdrop recomposition over animated backgrounds. */
 .sev-dashboard-bg-toggle,
