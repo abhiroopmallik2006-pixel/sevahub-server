@@ -1,7 +1,6 @@
 const express=require('express');
 const pool=require('../config');
 const {auth,authorize}=require('../middleware/auth');
-const {ensureWorkerModeration}=require('../utils/workerModeration');
 const {SKILL_CERTIFICATE_TABLE,ensureSkillCertificateTable,certificateMeta,detectedMime,safeCertificateFilename}=require('../utils/skillCertificates');
 
 const router=express.Router();
@@ -20,9 +19,6 @@ function rawCertificate(req,res,next){
 }
 
 async function workerRowByUser(userId){
-  // Keep profile reads independent from moderation schema upgrades. This lets the
-  // certificate panel load even when an older deployed database needs moderation
-  // columns repaired elsewhere.
   const [rows]=await pool.query(`
     SELECT w.id,w.user_id,
       (SELECT ws.service_id FROM worker_services ws WHERE ws.worker_id=w.id ORDER BY ws.id LIMIT 1) service_id
@@ -31,9 +27,26 @@ async function workerRowByUser(userId){
 }
 
 async function moderationForWorker(workerId){
-  await ensureWorkerModeration(pool);
-  const [rows]=await pool.query('SELECT is_banned,ban_reason,profile_deleted_at,profile_deleted_reason FROM workers WHERE id=? LIMIT 1',[workerId]);
-  return rows[0]||{};
+  // Certificate uploads should not fail just because an older deployed database
+  // is missing a newer moderation column. Read only the columns that actually
+  // exist and treat missing optional moderation fields as inactive.
+  try{
+    const [cols]=await pool.query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='workers'
+        AND COLUMN_NAME IN ('is_banned','ban_reason','profile_deleted_at','profile_deleted_reason')
+    `);
+    const names=new Set(cols.map(r=>String(r.COLUMN_NAME)));
+    const parts=['id'];
+    for(const name of ['is_banned','ban_reason','profile_deleted_at','profile_deleted_reason']){
+      if(names.has(name))parts.push(name);
+    }
+    const [rows]=await pool.query(`SELECT ${parts.join(',')} FROM workers WHERE id=? LIMIT 1`,[workerId]);
+    return rows[0]||{};
+  }catch(e){
+    console.warn('[Skill Certificates] moderation check skipped:',e.message);
+    return {};
+  }
 }
 
 async function certificateByWorker(workerId,withData=false){
@@ -55,25 +68,23 @@ router.get('/me',auth,authorize('WORKER'),async(req,res)=>{
     return res.json({success:true,data:certificateMeta(cert)});
   }catch(e){
     console.error('[Skill Certificates] GET /me failed:',e);
-    // Keep the Profile UI usable and show the upload form instead of a blank
-    // generic Server error card. Upload still reports a concrete error if the
-    // database itself is unavailable.
     return res.json({success:true,data:null,degraded:true,message:'Certificate storage is initializing. You can still submit a certificate.'});
   }
 });
 
-router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res,next)=>{
+router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res)=>{
   try{
     await ensureSkillCertificateTable();
     const worker=await workerRowByUser(req.user.id);
     if(!worker)return res.status(404).json({success:false,message:'Worker profile not found'});
+
     const moderation=await moderationForWorker(worker.id);
     if(moderation.profile_deleted_at)return res.status(403).json({success:false,message:`Certificate upload is disabled because your worker profile was deleted${moderation.profile_deleted_reason?`: ${moderation.profile_deleted_reason}`:''}`});
     if(Boolean(moderation.is_banned))return res.status(403).json({success:false,message:`Certificate upload is disabled while your worker account is restricted${moderation.ban_reason?`: ${moderation.ban_reason}`:''}`});
     if(!worker.service_id)return res.status(400).json({success:false,message:'Configure your worker service before uploading a skill certificate'});
 
     const buffer=req.body;
-    if(!Buffer.isBuffer(buffer)||buffer.length<1)return res.status(400).json({success:false,message:'Choose a certificate file to upload'});
+    if(!Buffer.isBuffer(buffer)||buffer.length<1)return res.status(400).json({success:false,message:'Certificate file was not received. Please choose the file again and retry.'});
     if(buffer.length>MAX_CERT_BYTES)return res.status(413).json({success:false,message:'Certificate file must be 3 MB or smaller'});
 
     const mime=detectedMime(buffer);
@@ -98,8 +109,15 @@ router.post('/me',auth,authorize('WORKER'),rawCertificate,async(req,res,next)=>{
     ]);
 
     const cert=await certificateByWorker(worker.id,false);
-    res.status(201).json({success:true,message:'Certificate submitted for cooperative verification',data:certificateMeta(cert)});
-  }catch(e){next(e)}
+    return res.status(201).json({success:true,message:'Certificate submitted for cooperative verification',data:certificateMeta(cert)});
+  }catch(e){
+    console.error('[Skill Certificates] POST /me failed:',e);
+    const code=String(e?.code||'').trim();
+    const message=code
+      ?`Certificate upload failed on the server (${code}). Please retry after the latest deployment.`
+      :'Certificate upload failed on the server. Please retry after the latest deployment.';
+    return res.status(500).json({success:false,message});
+  }
 });
 
 router.get('/me/file',auth,authorize('WORKER'),async(req,res,next)=>{
