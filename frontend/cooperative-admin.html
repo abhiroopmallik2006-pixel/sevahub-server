@@ -13,8 +13,62 @@
 <body>
 <div id="adminApp"></div>
 <script src="/socket.io/socket.io.js"></script>
-<script src="js/cooperative-admin.js?v=20260902-live2"></script>
-<script src="js/admin-worker-management.js?v=20260904-workerdelete2"></script>
+<script src="js/cooperative-admin.js?v=20260904-workerdelete3"></script>
+<script>
+(function(){
+  function profileDeletedBadge(worker){
+    if(!worker.profile_deleted_at)return '';
+    const reason=worker.profile_deleted_reason?`<br><span class="muted">${esc(worker.profile_deleted_reason)}</span>`:'';
+    return `<br><span class="pill bad">PROFILE DELETED</span>${reason}`;
+  }
+
+  async function deleteWorkerProfileDirect(id,name){
+    const reason=prompt(`Reason for deleting ${name}'s professional profile:`,'Profile removed by cooperative admin');
+    if(reason===null)return;
+    const clean=reason.trim();
+    if(clean.length<3)return alert('Please enter a reason of at least 3 characters.');
+    if(!confirm(`Delete ${name}'s WORKER PROFILE?\n\nLogin account and previous booking/payment history will remain. The professional profile will disappear from service listings.`))return;
+    try{
+      await adminApi(`/workers/${id}/profile`,{method:'DELETE',body:JSON.stringify({reason:clean})});
+      alert('Worker profile deleted. Historical records were preserved.');
+      await openSection('workers');
+    }catch(err){alert(err.message)}
+  }
+
+  async function eraseWorkerDirect(id,name){
+    const reason=prompt(`Reason for permanently erasing ${name}:`,'Permanent removal by cooperative admin');
+    if(reason===null)return;
+    const clean=reason.trim();
+    if(clean.length<3)return alert('Please enter a reason of at least 3 characters.');
+    if(!confirm(`PERMANENT ERASE WARNING\n\nThis deletes ${name}'s Worker account and worker-linked database records. This cannot be undone. Continue?`))return;
+    const required=`DELETE WORKER ${id}`;
+    const typed=prompt(`Final confirmation. Type exactly:\n${required}`,'');
+    if(typed===null)return;
+    if(typed.trim()!==required)return alert('Confirmation text did not match. Nothing was deleted.');
+    try{
+      await adminApi(`/workers/${id}`,{method:'DELETE',body:JSON.stringify({reason:clean,confirmText:required})});
+      alert('Worker account and linked database records were permanently erased.');
+      await openSection('workers');
+    }catch(err){alert(err.message)}
+  }
+
+  window.deleteWorkerProfileDirect=deleteWorkerProfileDirect;
+  window.eraseWorkerDirect=eraseWorkerDirect;
+
+  renderWorkers=function(rows){
+    const safeRows=Array.isArray(rows)?rows:[];
+    const html=safeRows.length?safeRows.map(w=>{
+      const id=Number(w.id);
+      const name=String(w.full_name||`Worker #${id}`);
+      const deleted=Boolean(w.profile_deleted_at);
+      const verifyDisabled=deleted?' disabled title="Profile deleted"':'';
+      const profileButton=deleted?'':`<button class="btn secondary small" onclick="deleteWorkerProfileDirect(${id},${JSON.stringify(name).replace(/</g,'\\u003c')})">Delete Profile</button>`;
+      return `<tr><td>#${id}</td><td><b>${esc(w.full_name)}</b><br><span class="muted">${esc(w.email||'')}</span></td><td>${esc(w.services||'—')}</td><td>${esc(w.experience_years??0)} yr<br><span class="muted">${esc(w.service_area||'')}</span></td><td>${pill(w.verification_status)}${profileDeletedBadge(w)}</td><td><div class="actions"><button class="btn small" onclick="setWorkerVerification(${id},'VERIFIED')"${verifyDisabled}>Verify</button><button class="btn secondary small" onclick="setWorkerVerification(${id},'PENDING')"${verifyDisabled}>Pending</button><button class="btn danger small" onclick="setWorkerVerification(${id},'REJECTED')"${verifyDisabled}>Reject</button>${profileButton}<button class="btn danger small" onclick="eraseWorkerDirect(${id},${JSON.stringify(name).replace(/</g,'\\u003c')})">Erase Worker</button></div></td></tr>`;
+    }).join(''):'<tr><td colspan="6"><div class="empty">No workers found.</div></td></tr>';
+    document.getElementById('adminContent').innerHTML=`<div class="panel"><div class="toolbar"><h2>Worker verification</h2><span class="muted">${safeRows.length} workers</span></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>Worker</th><th>Services</th><th>Experience / Area</th><th>Status</th><th>Admin action</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
+  };
+})();
+</script>
 <script src="js/admin-welfare.js?v=20260903-welfare3"></script>
 <script src="js/admin-intelligence.js?v=20260903-intel1"></script>
 <script src="js/admin-support-live.js?v=20260902-live2"></script>
