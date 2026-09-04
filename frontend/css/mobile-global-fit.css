@@ -1,0 +1,230 @@
+/* Global SevaHub mobile viewport fit.
+   Prevents page-level horizontal panning while reflowing real content to fit. */
+@media (max-width:760px){
+  html,body{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    margin:0;
+    overflow-x:clip!important;
+    overscroll-behavior-x:none;
+  }
+
+  #app,.app{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    overflow-x:clip!important;
+  }
+
+  *,*::before,*::after{max-width:100%;}
+  img,svg,video,canvas{max-width:100%;height:auto;}
+
+  .container{
+    width:calc(100% - 20px)!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+
+  .dashboard,
+  #userContent,#workerContent,
+  .panel,.card,.offer,.form,
+  .grid,.stats,.tabs,.split,
+  .instant-worker-panel,
+  .booking-list-marker,
+  .worker-payment-receipts,
+  .support-panel,
+  .activity-report-panel{
+    min-width:0!important;
+    max-width:100%!important;
+  }
+
+  .grid>* ,.stats>* ,.tabs>* ,.split>*{
+    min-width:0!important;
+  }
+
+  h1,h2,h3,h4,p,span,b,strong,label,a,button,
+  .muted,.empty,.price,.pill{
+    overflow-wrap:anywhere;
+    word-break:normal;
+  }
+
+  /* Header: reflow instead of pushing the document wider than the phone. */
+  .nav{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    height:auto!important;
+    min-height:64px;
+    padding:8px 10px!important;
+    gap:7px!important;
+    flex-wrap:wrap!important;
+    align-items:center!important;
+  }
+  .brand{
+    flex:1 1 auto;
+    min-width:0!important;
+    font-size:19px!important;
+    white-space:nowrap;
+  }
+  .nav-actions{
+    flex:1 1 100%;
+    width:100%;
+    max-width:100%!important;
+    min-width:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:6px!important;
+    flex-wrap:wrap!important;
+    overflow:visible!important;
+  }
+  .nav-actions>*{
+    min-width:0!important;
+    max-width:100%;
+  }
+  .nav-actions .theme,
+  .nav-actions .btn.small,
+  .nav-actions .account-profile-button{
+    flex:0 1 auto;
+  }
+  .nav-actions .pill{white-space:normal!important;}
+
+  /* Four dashboard summary cards remain in one row, but actually fit the screen. */
+  .dashboard .stats{
+    width:100%!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:6px!important;
+    overflow:visible!important;
+    padding:0!important;
+  }
+  .dashboard .stats .stat{
+    width:auto!important;
+    min-width:0!important;
+    min-height:82px!important;
+    padding:9px 7px!important;
+    border-radius:13px!important;
+  }
+  .dashboard .stats .stat .muted{
+    font-size:9px!important;
+    line-height:1.15!important;
+  }
+  .dashboard .stats .stat b{
+    margin-top:8px!important;
+    font-size:19px!important;
+    line-height:1!important;
+  }
+
+  /* Dashboard navigation wraps; no horizontal swipe strip. */
+  .dashboard > .tabs{
+    width:100%!important;
+    max-width:100%!important;
+    display:flex!important;
+    flex-wrap:wrap!important;
+    overflow:visible!important;
+    gap:5px!important;
+    padding:7px!important;
+  }
+  .dashboard > .tabs .btn,
+  .dashboard > .tabs .btn.secondary{
+    flex:1 1 auto!important;
+    min-width:0!important;
+    padding:8px 9px!important;
+    font-size:11px!important;
+    white-space:normal!important;
+  }
+
+  /* The decorative MacBook base used to be 112%, which could widen the page. */
+  .sevahub-macbook3d-section,
+  .sevahub-macbook3d,
+  .sevahub-macbook3d-screen,
+  .sevahub-macbook3d-screenbody,
+  .sevahub-macbook-preview{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  .sevahub-macbook3d-section{
+    overflow:hidden!important;
+    padding-left:0!important;
+    padding-right:0!important;
+  }
+  .sevahub-macbook3d-base{
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:0!important;
+  }
+
+  .dashboard-scroll-hero,
+  .dashboard-scroll-stage,
+  .dashboard-scroll-card,
+  .dashboard-scroll-preview,
+  .dashboard-layout-grid,
+  .layout-grid-cards,
+  .layout-grid-card{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  .dashboard-scroll-hero{margin-left:0!important;margin-right:0!important;}
+  .dashboard-scroll-stage{margin-left:auto!important;margin-right:auto!important;}
+
+  /* Common form/action rows fit without forcing document width. */
+  .split{
+    flex-wrap:wrap!important;
+  }
+  .field input,.field select,.field textarea,
+  input,select,textarea{
+    width:100%;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  .tabs .btn,.tabs button{
+    max-width:100%!important;
+  }
+
+  .gem-hero,.gem-grid,.gem-redeem-form,
+  .history-filter,.history-total,
+  .booking-chat,.chat-body,.chat-input,
+  .instant-offer,.instant-offer-meta,
+  .emergency-card,.emergency-search,.emergency-match,
+  .location-dialog,.account-profile-dialog{
+    max-width:100%!important;
+    min-width:0!important;
+  }
+
+  /* Floating chat stays inside visual viewport. */
+  .chat{
+    left:10px!important;
+    right:10px!important;
+    max-width:calc(100% - 20px)!important;
+  }
+  .chat-box{
+    left:auto!important;
+    right:0!important;
+    width:min(330px,100%)!important;
+    max-width:100%!important;
+  }
+
+  pre,code{
+    max-width:100%;
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+  }
+}
+
+@media (max-width:390px){
+  .container{width:calc(100% - 14px)!important;}
+  .nav{padding:7px!important;}
+  .brand{font-size:17px!important;}
+  .nav-actions{gap:4px!important;}
+  .nav-actions .theme,
+  .nav-actions .btn.small{padding:7px 8px!important;font-size:11px!important;}
+
+  .dashboard .stats{gap:4px!important;}
+  .dashboard .stats .stat{padding:8px 5px!important;min-height:76px!important;}
+  .dashboard .stats .stat .muted{font-size:8px!important;}
+  .dashboard .stats .stat b{font-size:17px!important;}
+}
