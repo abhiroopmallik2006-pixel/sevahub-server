@@ -2,7 +2,7 @@ const express=require('express');
 const jwt=require('jsonwebtoken');
 const pool=require('../config');
 const {notify}=require('../utils/notifications');
-const {ensureSkillCertificateTable,certificateMeta}=require('../utils/skillCertificates');
+const {SKILL_CERTIFICATE_TABLE,ensureSkillCertificateTable,certificateMeta}=require('../utils/skillCertificates');
 
 const router=express.Router();
 
@@ -25,7 +25,7 @@ router.get('/skill-certificates',adminAuth,async(req,res,next)=>{
         c.reviewed_by,c.uploaded_at,c.reviewed_at,c.updated_at,
         s.name service_name,w.user_id,w.verification_status worker_verification_status,w.is_banned,w.profile_deleted_at,
         u.full_name worker_name,u.email worker_email
-      FROM worker_skill_certificates c
+      FROM ${SKILL_CERTIFICATE_TABLE} c
       JOIN workers w ON w.id=c.worker_id
       JOIN users u ON u.id=w.user_id
       LEFT JOIN services s ON s.id=c.service_id
@@ -40,7 +40,7 @@ router.get('/skill-certificates/:id/file',adminAuth,async(req,res,next)=>{
     await ensureSkillCertificateTable();
     const id=Number(req.params.id);
     if(!Number.isInteger(id)||id<1)return res.status(400).json({success:false,message:'Invalid certificate'});
-    const [rows]=await pool.query('SELECT file_name,mime_type,file_size,file_data FROM worker_skill_certificates WHERE id=? LIMIT 1',[id]);
+    const [rows]=await pool.query(`SELECT file_name,mime_type,file_size,file_data FROM ${SKILL_CERTIFICATE_TABLE} WHERE id=? LIMIT 1`,[id]);
     if(!rows.length)return res.status(404).json({success:false,message:'Certificate not found'});
     const cert=rows[0];
     res.setHeader('Content-Type',cert.mime_type);
@@ -68,16 +68,16 @@ router.put('/skill-certificates/:id/status',adminAuth,async(req,res,next)=>{
     await conn.beginTransaction();
     const [rows]=await conn.query(`
       SELECT c.id,c.title,c.status,c.worker_id,w.user_id,u.full_name
-      FROM worker_skill_certificates c
+      FROM ${SKILL_CERTIFICATE_TABLE} c
       JOIN workers w ON w.id=c.worker_id
       JOIN users u ON u.id=w.user_id
       WHERE c.id=? LIMIT 1 FOR UPDATE`,[id]);
     if(!rows.length){await conn.rollback();return res.status(404).json({success:false,message:'Certificate not found'})}
     member=rows[0];
     if(status==='PENDING'){
-      await conn.query(`UPDATE worker_skill_certificates SET status='PENDING',review_reason=NULL,reviewed_by=NULL,reviewed_at=NULL WHERE id=?`,[id]);
+      await conn.query(`UPDATE ${SKILL_CERTIFICATE_TABLE} SET status='PENDING',review_reason=NULL,reviewed_by=NULL,reviewed_at=NULL WHERE id=?`,[id]);
     }else{
-      await conn.query(`UPDATE worker_skill_certificates SET status=?,review_reason=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?`,[
+      await conn.query(`UPDATE ${SKILL_CERTIFICATE_TABLE} SET status=?,review_reason=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP WHERE id=?`,[
         status,status==='REJECTED'?reason:(reason||null),String(req.admin.email||'ADMIN').slice(0,150),id
       ]);
     }
