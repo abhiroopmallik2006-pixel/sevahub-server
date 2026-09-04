@@ -1,0 +1,40 @@
+/* Smoother compositing without removing or simplifying any existing animation. */
+html{scroll-behavior:smooth}
+
+/* Promote only elements that are actively moving instead of the whole dashboard. */
+main.dashboard .sev-motion-card.sev-motion-active{
+  will-change:transform,box-shadow;
+  transform-origin:center center;
+}
+main.dashboard .sev-motion-card.sev-motion-active > *{
+  backface-visibility:hidden;
+}
+
+.sevahub-macbook3d-lid,
+.dashboard-scroll-hero .dashboard-scroll-card,
+.dashboard-scroll-title{
+  backface-visibility:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+.sev-motion-smoothing .sevahub-macbook3d-lid,
+[data-dashboard-scroll].sev-motion-smoothing .dashboard-scroll-card,
+[data-dashboard-scroll].sev-motion-smoothing .dashboard-scroll-title{
+  will-change:transform!important;
+}
+
+/* Keep the same tilt/reveal effects, just use a softer response curve. */
+main.dashboard .sev-motion-card{
+  transition:transform .18s cubic-bezier(.22,.75,.22,1),box-shadow .2s ease!important;
+}
+main.dashboard .sev-motion-card > :is(h2,h3,p,.price,.service-icon,img,.tabs,.btn,.split,.layout-grid-content){
+  transition:translate .2s cubic-bezier(.22,.75,.22,1)!important;
+}
+
+/* Avoid tiny horizontal layout jumps when long pages gain/lose a scrollbar. */
+@supports (scrollbar-gutter:stable){html{scrollbar-gutter:stable}}
+
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .sev-motion-smoothing *{will-change:auto!important}
+}
