@@ -85,6 +85,8 @@ app.use('/api/admin/intelligence',require('./routes/admin-intelligence'));
 app.use('/api/admin',require('./routes/admin-skill-certificates'));
 app.use('/api/admin',require('./routes/admin-worker-management'));
 app.use('/api/admin',require('./routes/admin'));
+// Reliable DB-backed scheduled-booking agent takes /chat first; legacy AI router remains as fallback for any other AI endpoints.
+app.use('/api/ai',require('./routes/ai-booking-v2'));
 app.use('/api/ai',require('./routes/ai'));
 app.use('/api/chat',require('./routes/chat'));
 
