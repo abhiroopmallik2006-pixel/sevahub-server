@@ -1,0 +1,47 @@
+/* Keep the background chooser inside the logged-in dashboard top bar. */
+.nav .nav-actions .sev-dashboard-bg-controls{
+  position:relative!important;
+  right:auto!important;
+  top:auto!important;
+  z-index:1700!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+}
+
+.nav .nav-actions .sev-dashboard-bg-toggle{
+  min-height:46px;
+  padding:10px 14px!important;
+  border-radius:14px!important;
+  white-space:nowrap;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+
+.nav .nav-actions .sev-dashboard-bg-menu{
+  top:calc(100% + 10px)!important;
+  right:0!important;
+  left:auto!important;
+  z-index:1800!important;
+  max-height:min(430px,calc(100dvh - 90px))!important;
+}
+
+@media(max-width:760px){
+  .nav .nav-actions .sev-dashboard-bg-controls{
+    order:5;
+  }
+  .nav .nav-actions .sev-dashboard-bg-toggle{
+    min-height:40px;
+    padding:8px 10px!important;
+    font-size:11px!important;
+  }
+  .nav .nav-actions .sev-dashboard-bg-menu{
+    position:fixed!important;
+    top:118px!important;
+    right:10px!important;
+    left:auto!important;
+    width:min(255px,calc(100vw - 20px))!important;
+  }
+}
