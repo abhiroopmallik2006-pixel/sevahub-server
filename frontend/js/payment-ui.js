@@ -1,8 +1,8 @@
-/* Razorpay checkout + 2% platform-fee breakdowns for users and workers. */
+/* Razorpay checkout + 5% platform-fee breakdowns for users and workers. */
 (function(){
   if(typeof userBookings!=='function') return;
 
-  const PLATFORM_FEE_PERCENT=2;
+  const PLATFORM_FEE_PERCENT=5;
   const previousUserBookings=userBookings;
   const previousWorkerBookings=typeof workerBookings==='function'?workerBookings:null;
 
