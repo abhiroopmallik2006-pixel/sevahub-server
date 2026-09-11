@@ -7,7 +7,7 @@ const {notify}=require('../utils/notifications');
 const {ensureWorkerModeration}=require('../utils/workerModeration');
 
 const router=express.Router();
-const PLATFORM_FEE_PERCENT=Number(process.env.PLATFORM_FEE_PERCENT||2);
+const PLATFORM_FEE_PERCENT=5;
 
 function keys(){
   return {
