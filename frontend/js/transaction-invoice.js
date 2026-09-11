@@ -1,6 +1,6 @@
 /* Downloadable SevaHub PDF transaction statements for customer spend + worker earnings history. */
 (function(){
-  const PLATFORM_FEE_PERCENT=2;
+  const PLATFORM_FEE_PERCENT=5;
   let decorating=false;
 
   function fmtMoney(v){return Number(v||0).toFixed(2)}
