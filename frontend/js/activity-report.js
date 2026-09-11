@@ -1,6 +1,6 @@
 /* SevaHub activity timestamps + detailed spend/earn reports. */
 (function(){
-  const PLATFORM_FEE_PERCENT=2;
+  const PLATFORM_FEE_PERCENT=5;
   const originalAppendBookingMessage=typeof appendBookingMessage==='function'?appendBookingMessage:null;
   const originalUserBookings=typeof userBookings==='function'?userBookings:null;
   const originalWorkerBookings=typeof workerBookings==='function'?workerBookings:null;
