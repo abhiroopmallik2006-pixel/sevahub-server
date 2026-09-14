@@ -3,6 +3,7 @@ const express=require('express');
 const http=require('http');
 const path=require('path');
 const cors=require('cors');
+const jwt=require('jsonwebtoken');
 const {Server}=require('socket.io');
 
 const app=express();
@@ -15,9 +16,51 @@ app.use(express.json());
 app.use(express.urlencoded({extended:true}));
 app.use(express.static(path.join(__dirname,'../frontend')));
 
+function verifySocketToken(token){
+  if(!token)return null;
+  try{return jwt.verify(String(token),process.env.JWT_SECRET)}catch(e){return null}
+}
+
 io.on('connection',socket=>{
   socket.on('join-user-room',userId=>{
     if(userId) socket.join(`user-${userId}`);
+  });
+
+  // Admin support room is protected with the same signed admin token used by
+  // the cooperative dashboard. Ordinary User/Worker sockets cannot join it.
+  socket.on('join-admin-support',token=>{
+    const payload=verifySocketToken(token);
+    if(payload?.role==='ADMIN'&&payload?.admin===true) socket.join('support-admin');
+  });
+
+  // The database write still happens through the authenticated REST route.
+  // This event only tells an open admin dashboard to fetch the newly committed
+  // message immediately, so Support chat behaves in realtime without polling.
+  socket.on('support-member-sent',data=>{
+    const payload=verifySocketToken(data?.token);
+    const ticketId=Number(data?.ticketId);
+    if(!payload||!['USER','WORKER'].includes(payload.role)||!Number.isInteger(ticketId)||ticketId<1)return;
+    io.to('support-admin').emit('support-message',{
+      ticketId,
+      senderType:'MEMBER',
+      userId:Number(payload.id),
+      role:payload.role
+    });
+  });
+
+  // Admin replies are committed by /api/admin first. Once that succeeds the
+  // dashboard sends this authenticated bridge event to the member's user room.
+  socket.on('support-admin-sent',data=>{
+    const payload=verifySocketToken(data?.token);
+    const ticketId=Number(data?.ticketId),userId=Number(data?.userId);
+    if(payload?.role!=='ADMIN'||payload?.admin!==true||!Number.isInteger(ticketId)||ticketId<1||!Number.isInteger(userId)||userId<1)return;
+    io.to(`user-${userId}`).emit('support-message',{ticketId,senderType:'ADMIN'});
+  });
+
+  socket.on('support-list-refresh',data=>{
+    const payload=verifySocketToken(data?.token);
+    if(!payload||!['USER','WORKER'].includes(payload.role))return;
+    io.to('support-admin').emit('support-ticket:refresh',{userId:Number(payload.id),role:payload.role});
   });
 });
 
@@ -37,12 +80,26 @@ app.use('/api/emergency',require('./routes/emergency'));
 app.use('/api/notifications',require('./routes/notifications'));
 app.use('/api/support',require('./routes/support'));
 app.use('/api/welfare',require('./routes/welfare'));
+app.use('/api/admin/welfare',require('./routes/admin-welfare'));
+app.use('/api/admin/intelligence',require('./routes/admin-intelligence'));
+app.use('/api/admin',require('./routes/admin-skill-certificates'));
+app.use('/api/admin',require('./routes/admin-worker-management'));
+app.use('/api/admin',require('./routes/admin'));
 // Reliable DB-backed scheduled-booking agent takes /chat first; legacy AI router remains as fallback for any other AI endpoints.
 app.use('/api/ai',require('./routes/ai-booking-v2'));
 app.use('/api/ai',require('./routes/ai'));
 app.use('/api/chat',require('./routes/chat'));
 
 app.get('/api/health',(req,res)=>res.json({success:true,status:'ok'}));
+
+/* Cooperative admin is intentionally separate from the User/Worker app.
+   There is no dashboard link to this route, and every admin API call requires
+   a dedicated ADMIN_EMAIL + ADMIN_PASSWORD protected admin token. */
+app.get('/cooperative-admin',(req,res)=>{
+  res.set('X-Robots-Tag','noindex, nofollow, noarchive');
+  res.set('Cache-Control','no-store, no-cache, must-revalidate, private');
+  res.sendFile(path.join(__dirname,'../frontend/cooperative-admin.html'));
+});
 
 app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'../frontend/index.html')));
 
