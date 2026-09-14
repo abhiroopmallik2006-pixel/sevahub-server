@@ -6,6 +6,34 @@ const {notify}=require('../utils/notifications');
 
 const router=express.Router();
 const ADMIN_TOKEN_TTL=process.env.ADMIN_JWT_EXPIRES_IN||'8h';
+const RESET_CONFIRM_TEXT='RESET SEVAHUB DATA';
+const RESET_TABLES=[
+  'support_messages',
+  'support_tickets',
+  'ai_booking_sessions',
+  'worker_skill_certificates_v3',
+  'worker_skill_certificates_v2',
+  'worker_skill_certificates',
+  'worker_welfare',
+  'worker_insurance',
+  'emergency_offers',
+  'emergency_requests',
+  'payments',
+  'booking_messages',
+  'bargain_offers',
+  'reviews',
+  'reward_transactions',
+  'notifications',
+  'worker_availability',
+  'worker_suspended_services',
+  'worker_services',
+  'user_locations',
+  'bookings',
+  'email_otps',
+  'admin_worker_deletion_log',
+  'workers',
+  'users'
+];
 
 function digest(value){return crypto.createHash('sha256').update(String(value||'')).digest()}
 function safeEqual(a,b){
@@ -30,8 +58,8 @@ function adminAuth(req,res,next){
     next();
   }catch(e){return res.status(401).json({success:false,message:'Invalid or expired admin session'})}
 }
-async function tableExists(name){
-  const [rows]=await pool.query('SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? LIMIT 1',[name]);
+async function tableExists(name,db=pool){
+  const [rows]=await db.query('SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? LIMIT 1',[name]);
   return Boolean(rows.length);
 }
 async function columnExists(table,column){
@@ -91,6 +119,27 @@ router.get('/summary',adminAuth,async(req,res,next)=>{try{
   }
   res.json({success:true,data:{users:Number(usersCount[0]?.total||0),workers:Number(workersCount[0]?.total||0),bookings:Number(bookingsCount[0]?.total||0),completed:Number(completedCount[0]?.total||0),pendingWorkerVerification:Number(pendingWorkers[0]?.total||0),openSupportTickets:openSupport,paidAmount,workerNet}});
 }catch(e){next(e)}});
+
+router.post('/reset-data',adminAuth,async(req,res,next)=>{
+  const confirmText=String(req.body.confirmText||'').trim();
+  if(confirmText!==RESET_CONFIRM_TEXT)return res.status(400).json({success:false,message:`Type exactly: ${RESET_CONFIRM_TEXT}`});
+  const conn=await pool.getConnection();
+  const deleted=[];
+  const skipped=[];
+  try{
+    await conn.beginTransaction();
+    for(const table of RESET_TABLES){
+      if(!(await tableExists(table,conn))){skipped.push(table);continue}
+      const [result]=await conn.query(`DELETE FROM \`${table}\``);
+      deleted.push({table,rows:Number(result.affectedRows||0)});
+    }
+    await conn.commit();
+    res.json({success:true,message:'All User/Worker demo data was deleted. Services catalogue and Admin Dashboard were preserved.',data:{deleted,skipped}});
+  }catch(e){
+    await conn.rollback().catch(()=>{});
+    next(e);
+  }finally{conn.release()}
+});
 
 router.get('/workers',adminAuth,async(req,res,next)=>{try{
   await ensureWorkerVerification();
