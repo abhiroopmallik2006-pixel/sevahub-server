@@ -32,13 +32,15 @@ function normalized(value){return String(value||'').trim().toLowerCase()}
 function isCancelMessage(message){return /^(cancel|stop|quit|rehne do|rehne de|chhodo|chodo|cancel booking|start over|reset)$/i.test(String(message||'').trim())}
 function isBookingIntent(message){
   const q=normalized(message);
-  if(/\b(book|booking|schedule|scheduled)\b/.test(q)&&!(/\b(status|history|details|show|check|my booking|my bookings)\b/.test(q)))return true;
+  const historyQuestion=/\b(status|history|details|show|check|my booking|my bookings|meri booking|bookings dikhao)\b/.test(q);
+  if(historyQuestion&&/\b(book|booking|schedule|scheduled)\b/.test(q))return false;
+  if(/\b(book|booking|schedule|scheduled|appointment|appoint|arrange)\b/.test(q))return true;
   return /\b(book|booking|schedule)\b.{0,30}\b(kar|kr|karwa|karwana|karni|create|chahiye|karo|do)\b/.test(q)||
-    /\b(karwa do|karwa de|krwa do|krwa de|karwani hai|krwani hai|service chahiye|worker chahiye|professional chahiye)\b/.test(q)||
-    /\bneed\s+(a\s+)?(worker|service|professional)\b/.test(q);
+    /\b(karwa do|karwa de|krwa do|krwa de|karwani hai|krwani hai|service chahiye|worker chahiye|professional chahiye|bhej do|bhej de|bhejo|bula do|bulao|arrange kar do|arrange kardo)\b/.test(q)||
+    /\bneed\s+(a\s+)?(worker|service|professional|appointment)\b/.test(q);
 }
 function hasProblemSignal(message){
-  return /\b(kharab|toot|toota|tooti|broken|repair|fix|leak|leaking|slow|issue|problem|damage|damaged|loose|awaaz|noise|nahi chal|nhi chal|band hai|chahiye|karwani|karwana|clean|safai|cooling|termite|cockroach|shift|moving)\b/i.test(String(message||''));
+  return /\b(kharab|toot|toota|tooti|broken|repair|fix|leak|leaking|slow|issue|problem|damage|damaged|loose|awaaz|noise|nahi chal|nhi chal|band hai|chahiye|karwani|karwana|clean|safai|cooling|termite|cockroach|shift|moving|bhej|bula)\b/i.test(String(message||''));
 }
 function detectServiceName(message){
   const q=String(message||'');
@@ -164,24 +166,53 @@ function parseBookingDate(message){
   if(/\b(day after tomorrow|parso)\b/.test(q))return addDaysToToday(2);
   if(/\b(tomorrow|kal)\b/.test(q))return addDaysToToday(1);
   if(/\b(today|aaj)\b/.test(q))return addDaysToToday(0);
-  let m=q.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+
+  const weekdayMap={
+    sunday:0,sun:0,ravivar:0,raviwar:0,
+    monday:1,mon:1,somvar:1,somwar:1,
+    tuesday:2,tue:2,tues:2,mangalvar:2,mangalwar:2,
+    wednesday:3,wed:3,budhvar:3,budhwar:3,
+    thursday:4,thu:4,thur:4,thurs:4,guruvar:4,guruwar:4,
+    friday:5,fri:5,shukravar:5,shukrawar:5,
+    saturday:6,sat:6,shanivar:6,shaniwar:6
+  };
+  let m=q.match(/\b(next\s+)?(sunday|sun|ravivar|raviwar|monday|mon|somvar|somwar|tuesday|tue|tues|mangalvar|mangalwar|wednesday|wed|budhvar|budhwar|thursday|thu|thur|thurs|guruvar|guruwar|friday|fri|shukravar|shukrawar|saturday|sat|shanivar|shaniwar)\b/);
+  if(m){
+    const t=istToday(),todayDate=new Date(Date.UTC(t.y,t.m-1,t.d)),todayDow=todayDate.getUTCDay(),target=weekdayMap[m[2]];
+    let delta=(target-todayDow+7)%7;
+    if(m[1]&&delta===0)delta=7;
+    return addDaysToToday(delta);
+  }
+
+  m=q.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
   if(m){const y=+m[1],mo=+m[2],d=+m[3];if(validCalendarDate(y,mo,d))return dateString(y,mo,d)}
   m=q.match(/\b(\d{1,2})[\/-](\d{1,2})(?:[\/-](20\d{2}))?\b/);
   if(m){const t=istToday(),d=+m[1],mo=+m[2],y=m[3]?+m[3]:t.y;if(validCalendarDate(y,mo,d)){let out=dateString(y,mo,d);if(!m[3]&&out<dateString(t.y,t.m,t.d)&&validCalendarDate(y+1,mo,d))out=dateString(y+1,mo,d);return out}}
-  const months={jan:1,january:1,feb:2,february:2,mar:3,march:3,apr:4,april:4,may:5,jun:6,june:6,jul:7,july:7,aug:8,august:8,sep:9,september:9,oct:10,october:10,nov:11,november:11,dec:12,december:12};
-  m=q.match(/\b(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(20\d{2}))?\b/);
+  const months={jan:1,january:1,feb:2,february:2,mar:3,march:3,apr:4,april:4,may:5,jun:6,june:6,jul:7,july:7,aug:8,august:8,sep:9,sept:9,september:9,oct:10,october:10,nov:11,november:11,dec:12,december:12};
+  m=q.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(20\d{2}))?\b/);
   if(m){const t=istToday(),d=+m[1],mo=months[m[2]],y=m[3]?+m[3]:t.y;if(validCalendarDate(y,mo,d)){let out=dateString(y,mo,d);if(!m[3]&&out<dateString(t.y,t.m,t.d)&&validCalendarDate(y+1,mo,d))out=dateString(y+1,mo,d);return out}}
   return null;
 }
 
-function parseBookingTime(message){
+function parseBookingTime(message,allowBare=false){
   const q=normalized(message);
-  let m=q.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+  let m=q.match(/\b(\d{1,2})(?:(?::|\.)(\d{2}))?\s*(am|pm)\b/);
   if(m){let h=+m[1],min=+(m[2]||0);if(h<1||h>12||min>59)return null;if(m[3]==='pm'&&h!==12)h+=12;if(m[3]==='am'&&h===12)h=0;return {time:`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`,ambiguous:false}}
   m=q.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
   if(m)return {time:`${String(+m[1]).padStart(2,'0')}:${m[2]}`,ambiguous:false};
+  m=q.match(/\b(subah|morning|dopahar|afternoon|shaam|evening|raat|night)\s*(?:ko\s*)?(\d{1,2})(?:(?::|\.)(\d{2}))?(?:\s*baje)?\b/);
+  if(m){
+    const part=m[1];let h=+m[2],min=+(m[3]||0);if(h<1||h>12||min>59)return null;
+    if(/^(shaam|evening|raat|night|dopahar|afternoon)$/.test(part)&&h!==12)h+=12;
+    if(/^(subah|morning)$/.test(part)&&h===12)h=0;
+    return {time:`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`,ambiguous:false};
+  }
   m=q.match(/\b(\d{1,2})\s*baje\b/);
   if(m){let h=+m[1];if(h<1||h>23)return null;if(/\b(shaam|evening|raat|night)\b/.test(q)&&h<=12&&h!==12)h+=12;else if(/\b(subah|morning)\b/.test(q)&&h===12)h=0;else if(/\b(dopahar|afternoon)\b/.test(q)&&h<=12&&h!==12)h+=12;else if(h<=12)return {time:null,ambiguous:true,hour:h};return {time:`${String(h).padStart(2,'0')}:00`,ambiguous:false}}
+  if(allowBare){
+    m=q.match(/^\s*(\d{1,2})(?:(?::|\.)(\d{2}))?\s*$/);
+    if(m){const h=+m[1],min=+(m[2]||0);if(h>23||min>59)return null;if(h<=12)return {time:null,ambiguous:true,hour:h};return {time:`${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`,ambiguous:false}}
+  }
   return null;
 }
 
@@ -201,9 +232,9 @@ async function currentLocationAddress(userId){
     return {address:`Current GPS location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`};
   }catch(e){return null}
 }
-function wantsCurrentLocation(message){return /\b(current location|live location|my location|meri location|gps|yahi location|yahin|yahi)\b/i.test(String(message||''))}
+function wantsCurrentLocation(message){return /\b(current location|current|live location|my location|meri location|gps|yahi location|yahin|yahi)\b/i.test(String(message||''))}
 function parseMoney(message){const q=String(message||'').replace(/,/g,'');const m=q.match(/(?:₹|rs\.?|inr)?\s*(\d{2,7}(?:\.\d{1,2})?)/i);if(!m)return null;const n=Number(m[1]);return Number.isFinite(n)&&n>0?n:null}
-function bargainNo(message){return /\b(no|nahi|nhi|nah|nope|without bargain|no bargain|listed price|normal price|full price|bargain nahi|bargaining nahi)\b/i.test(String(message||''))}
+function bargainNo(message){return /\b(no|nahi|nhi|nah|nope|without bargain|no bargain|listed price|normal price|full price|same price|bargain nahi|bargaining nahi|confirm|confirm it|book it|proceed|continue|go ahead)\b/i.test(String(message||''))}
 function bargainYes(message){return /\b(yes|haan|han|ha|bargain|bargaining|negotiate|offer|kam kar|discount)\b/i.test(String(message||''))}
 
 function agentData(message,s,extra={}){return {message,bookingAgent:{active:Boolean(s),step:s?.step||null,serviceId:s?.serviceId||null,serviceName:s?.serviceName||null,...extra}}}
@@ -284,20 +315,28 @@ async function handleBookingAgent(req,message){
       s.step='LOCATION';await saveSession(req.user.id,s);return agentData(`✅ ${s.workerName} selected · ${s.bookingDate} at ${s.bookingTime}.\nAb service address batao, ya Location sharing ON hai toh “current location” bolo.`,s);
     }
     if(s.bookingDate){s.step='TIME';await saveSession(req.user.id,s);return agentData(`✅ ${s.workerName} selected. Date ${s.bookingDate}. Ab time batao — jaise 4 PM ya 16:00.`,s)}
-    s.step='DATE';await saveSession(req.user.id,s);return agentData(`✅ ${s.workerName} selected · listed price ₹${s.listedPrice.toLocaleString('en-IN')}.\nBooking kis date ki chahiye? “kal”, “7 September”, ya YYYY-MM-DD bol sakte ho.`,s);
+    s.step='DATE';await saveSession(req.user.id,s);return agentData(`✅ ${s.workerName} selected · listed price ₹${s.listedPrice.toLocaleString('en-IN')}.\nBooking kis date ki chahiye? “kal”, “next Monday”, “7 September”, ya YYYY-MM-DD bol sakte ho.`,s);
   }
 
   if(s.step==='DATE'){
-    const date=parseBookingDate(message);if(!date)return agentData('Date samajh nahi aayi. “kal”, “7 September”, “07/09/2026” ya “2026-09-07” format me bolo.',s);
+    const date=parseBookingDate(message);if(!date)return agentData('Date samajh nahi aayi. “kal”, “next Monday”, “7 September”, “07/09/2026” ya “2026-09-07” format me bolo.',s);
     if(date<addDaysToToday(0))return agentData('Past date par booking nahi bana sakta. Aaj ya future date batao.',s);
     s.bookingDate=date;const time=parseBookingTime(message);
-    if(time?.time){s.bookingTime=time.time;if(bookingMomentIsPast(s.bookingDate,s.bookingTime))return agentData('Ye time already past hai. Future time batao.',s);s.step='LOCATION';await saveSession(req.user.id,s);return agentData(`Date/time set: ${s.bookingDate} · ${s.bookingTime}. Ab address batao ya “current location” bolo.`,s)}
-    s.step='TIME';await saveSession(req.user.id,s);return agentData(`Date set: ${s.bookingDate}. Ab time batao — jaise 10:30 AM, 4 PM, ya 16:00.`,s);
+    if(time?.time){
+      s.bookingTime=time.time;
+      if(bookingMomentIsPast(s.bookingDate,s.bookingTime)){
+        s.bookingTime=null;s.step='TIME';await saveSession(req.user.id,s);
+        return agentData(`Date ${s.bookingDate} set hai, but ye time already past hai. Ab sirf future time batao — jaise 6 PM.`,s);
+      }
+      s.step='LOCATION';await saveSession(req.user.id,s);return agentData(`Date/time set: ${s.bookingDate} · ${s.bookingTime}. Ab address batao ya “current location” bolo.`,s)
+    }
+    s.step='TIME';await saveSession(req.user.id,s);return agentData(`Date set: ${s.bookingDate}. Ab time batao — jaise 10:30 AM, 4 PM, “shaam 5”, ya 16:00.`,s);
   }
 
   if(s.step==='TIME'){
-    const time=parseBookingTime(message);if(time?.ambiguous)return agentData(`${time.hour} baje samajh gaya, bas AM/PM bata do.`,s);if(!time?.time)return agentData('Time samajh nahi aaya. 10:30 AM, 4 PM, 16:00, ya “shaam 5 baje” jaisa bolo.',s);
-    s.bookingTime=time.time;if(bookingMomentIsPast(s.bookingDate,s.bookingTime))return agentData('Selected time already past hai. Future time batao.',s);
+    const time=parseBookingTime(message,true);if(time?.ambiguous)return agentData(`${time.hour} baje samajh gaya, bas AM/PM ya “subah/shaam” bata do.`,s);if(!time?.time)return agentData('Time samajh nahi aaya. 10:30 AM, 4 PM, 16:00, “shaam 5”, ya “subah 10” jaisa bolo.',s);
+    s.bookingTime=time.time;
+    if(bookingMomentIsPast(s.bookingDate,s.bookingTime)){s.bookingTime=null;await saveSession(req.user.id,s);return agentData('Selected time already past hai. Future time batao.',s)}
     s.step='LOCATION';await saveSession(req.user.id,s);return agentData(`Time set: ${s.bookingTime}. Ab service address batao, ya “current location” bolo.`,s);
   }
 
@@ -310,7 +349,7 @@ async function handleBookingAgent(req,message){
     }else{
       const address=String(message||'').trim();if(address.length<5)return agentData('Address thoda complete batao, ya “current location” bolo.',s);s.address=address.slice(0,500);
     }
-    s.step='BARGAIN';await saveSession(req.user.id,s);return agentData(`📍 Location set. Listed price ₹${Number(s.listedPrice||0).toLocaleString('en-IN')}.\nBargaining karni hai? “No” bolo toh booking listed price par create ho jayegi; “Yes” bolo toh offer amount poochhunga.`,s);
+    s.step='BARGAIN';await saveSession(req.user.id,s);return agentData(`📍 Location set. Listed price ₹${Number(s.listedPrice||0).toLocaleString('en-IN')}.\nBargaining karni hai? “No” / “Book it” bolo toh booking listed price par create ho jayegi; “Yes” bolo toh offer amount poochhunga.`,s);
   }
 
   if(s.step==='BARGAIN'){
@@ -324,7 +363,7 @@ async function handleBookingAgent(req,message){
       return agentData(`✅ Scheduled Booking #${created.bookingId} create ho gayi aur ₹${amount.toLocaleString('en-IN')} ka bargain offer worker ko bhej diya.\n📅 ${s.bookingDate} · ⏰ ${s.bookingTime}\nStatus: BARGAINING.`,null,{finished:true,bookingId:created.bookingId,status:created.status,bargainAmount:amount});
     }
     if(bargainYes(message)){s.step='BARGAIN_AMOUNT';await saveSession(req.user.id,s);return agentData(`Theek hai. Offer amount batao — jaise ₹${Math.max(1,Math.round(Number(s.listedPrice||0)*0.9))}.`,s)}
-    return agentData('Bargain karni hai ya nahi? “Yes” / “No” bolo. Amount direct bhi bol sakte ho, jaise ₹300.',s);
+    return agentData('Bargain karni hai ya nahi? “Yes” / “No” bolo. “Book it” bhi bol sakte ho. Amount direct bhi bol sakte ho, jaise ₹300.',s);
   }
 
   if(s.step==='BARGAIN_AMOUNT'){
