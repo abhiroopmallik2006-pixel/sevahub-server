@@ -55,8 +55,34 @@
     }catch(err){alert(err.message)}
   }
 
+  async function resetSevaHubDemoData(){
+    if(!confirm('This will permanently delete ALL customer and worker accounts plus linked bookings, payments, chats, reviews, GPS, support, emergency, certificates and welfare data.\n\nServices/prices and the Admin Dashboard will stay. Continue?'))return;
+    const required='RESET SEVAHUB DATA';
+    const typed=prompt(`Final confirmation. Type exactly:\n${required}`,'');
+    if(typed===null)return;
+    if(typed.trim()!==required)return alert('Confirmation text did not match. Nothing was deleted.');
+    try{
+      const result=await adminApi('/reset-data',{method:'POST',body:JSON.stringify({confirmText:required})});
+      alert(result.message||'User/Worker data reset completed.');
+      await openSection('summary');
+    }catch(err){alert(err.message)}
+  }
+
   window.deleteWorkerProfileDirect=deleteWorkerProfileDirect;
   window.eraseWorkerDirect=eraseWorkerDirect;
+  window.resetSevaHubDemoData=resetSevaHubDemoData;
+
+  const baseRenderSummary=renderSummary;
+  renderSummary=function(d){
+    baseRenderSummary(d);
+    const box=document.getElementById('adminContent');
+    if(!box)return;
+    const danger=document.createElement('div');
+    danger.className='panel';
+    danger.style.marginTop='18px';
+    danger.innerHTML=`<div class="toolbar"><div><h2>Demo data reset</h2><p class="muted">Permanently clears all User/Worker accounts and linked operational data. Services/prices and this Admin Dashboard are preserved.</p></div><button class="btn danger" onclick="resetSevaHubDemoData()">Reset User & Worker Data</button></div>`;
+    box.appendChild(danger);
+  };
 
   renderWorkers=function(rows){
     const safeRows=Array.isArray(rows)?rows:[];
